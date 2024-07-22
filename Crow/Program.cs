@@ -17,29 +17,45 @@ class Program
         }
         else if (args.Length == 1)
         {
-            switch (args[0].ToLower())
-            {
-                case "help":
-                case "--help":
-                case "h":
-                case "-h":
-                    DisplayHelpMessage();
-                    break;
-                case "version":
-                case "v":
-                case "--version":
-                case "-v":
-                    DisplayVersionMessage();
-                    break;
-                default:
-                    DisplayInvalidArgumentsMessage();
-                    return;
-            }
+            var c = args[0].ToLower();
+
+            if (Commands.HelpAliases.Contains(c))
+                DisplayHelpMessage();
+            else if (Commands.VersionAliases.Contains(c))
+                DisplayVersionMessage();
+            else
+                DisplayInvalidArgumentsMessage();
+
             return;
         }
-        else if (args[0] == "")
+        else if (args[0].IsEqual(Commands.History))
         {
+            if (args[1].IsEqual(Commands.List))
+            {
+                AnsiConsole.MarkupLine("history list");
+            }
+            else if (args[1].IsEqual(Commands.Remove) && args.Length > 2)
+            {
+                var removeCandidates = args[2..];
 
+                AnsiConsole.MarkupLine("Remove Candidates are");
+                foreach (var item in removeCandidates)
+                {
+                    Console.WriteLine(item);
+                }
+            }
+            else if (args[1].IsEqual(Commands.Repeat))
+            {
+                var isForceDeleteEnabled = args.IndexOf(Flags.Force) != -1;
+                AnsiConsole.MarkupLine("Repeating previous commands");
+                if (isForceDeleteEnabled)
+                    Console.WriteLine("with force");
+            }
+            else
+            {
+                DisplayInvalidArgumentsMessage();
+            }
+            return;
         }
 
         Configuration parsedConfig;
@@ -133,7 +149,8 @@ class Program
               
             Note: 
               1. All flags except {Flags.Force} are [red]required[/].
-              2. Flags are [red]case sensetive[/].
+              2. Flags are case insensitive. 
+              3. Using [red]{Flags.Force}[/] is not recommended.
 
             Credits:
               By  Mahmudul Hasan (https://mahmudx.com)
@@ -142,6 +159,8 @@ class Program
         AnsiConsole.MarkupLine(message);
         AnsiConsole.WriteLine();
     }
+
+    private enum Sensetasdsad { }
 
     private static void DisplayVersionMessage()
     {

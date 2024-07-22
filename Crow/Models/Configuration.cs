@@ -9,7 +9,7 @@ public class Configuration
 
     public static Configuration Parse(string[] args)
     {
-        var lfIndex = Array.IndexOf(args, Flags.LF);
+        var lfIndex = args.IndexOf(Flags.LF);
         string lfValue =
             lfIndex != -1 && !args[lfIndex + 1].StartsWith('-')
                 ? args[lfIndex + 1]
@@ -18,7 +18,7 @@ public class Configuration
         List<string> rmValues = ParseFlagParts(Flags.RM, args);
         List<string> inValues = ParseFlagParts(Flags.IN, args);
 
-        var forceIndex = Array.IndexOf(args, Flags.Force);
+        var forceIndex = args.IndexOf(Flags.Force);
 
         return new Configuration
         {
@@ -31,7 +31,7 @@ public class Configuration
 
     private static List<string> ParseFlagParts(string flag, string[] args)
     {
-        var sIndex = Array.IndexOf(args, flag);
+        var sIndex = args.IndexOf(flag);
         if (sIndex == -1)
         {
             throw new ArgumentException($"{flag} value is required.", flag);
