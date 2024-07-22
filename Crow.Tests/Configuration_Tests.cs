@@ -29,7 +29,7 @@ public class Configuration_Tests
         {
             LookFor = "*csproj",
             RemoveCandidates = ["bin", "obj", "test 1", "test2"],
-            Paths = ["C:\\Users\\Mahmud\\RiderProjects\\"]
+            LookIns = ["C:\\Users\\Mahmud\\RiderProjects\\"]
         };
 
         // Assert

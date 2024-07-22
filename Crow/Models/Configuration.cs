@@ -4,8 +4,7 @@ public class Configuration
 {
     public required string LookFor { get; set; }
     public required IReadOnlyList<string> RemoveCandidates { get; set; }
-    public required IReadOnlyList<string> Paths { get; set; }
-    public bool IsForceDeleteEnabled { get; set; }
+    public required IReadOnlyList<string> LookIns { get; set; }
 
     public static Configuration Parse(string[] args)
     {
@@ -18,14 +17,11 @@ public class Configuration
         List<string> rmValues = ParseFlagParts(Flags.RM, args);
         List<string> inValues = ParseFlagParts(Flags.IN, args);
 
-        var forceIndex = args.IndexOf(Flags.Force);
-
         return new Configuration
         {
             LookFor = lfValue,
             RemoveCandidates = rmValues,
-            Paths = inValues,
-            IsForceDeleteEnabled = forceIndex != -1
+            LookIns = inValues
         };
     }
 

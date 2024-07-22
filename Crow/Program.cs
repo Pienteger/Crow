@@ -8,98 +8,67 @@ namespace Crow;
 
 class Program
 {
+    private static bool IsForceFlagEnabled;
+    private static Configuration? ParsedConfig;
+
     static void Main(string[] args)
     {
         if (args.Length == 0)
         {
             DisplayInvalidArgumentsMessage();
-            return;
         }
-        else if (args.Length == 1)
+        else if (Commands.HelpAliases.IndexOf(args[0]) >= 0)
         {
-            var c = args[0].ToLower();
-
-            if (Commands.HelpAliases.Contains(c))
-                DisplayHelpMessage();
-            else if (Commands.VersionAliases.Contains(c))
-                DisplayVersionMessage();
-            else
-                DisplayInvalidArgumentsMessage();
-
-            return;
+            DisplayHelpMessage();
         }
-        else if (args[0].IsEqual(Commands.History))
+        else if (Commands.VersionAliases.IndexOf(args[0]) >= 0)
         {
-            if (args[1].IsEqual(Commands.List))
+            DisplayVersionMessage();
+        }
+        else
+        {
+            try
             {
-                AnsiConsole.MarkupLine("history list");
+                ParsedConfig = Configuration.Parse(args);
             }
-            else if (args[1].IsEqual(Commands.Remove) && args.Length > 2)
+            catch (ArgumentException ae)
             {
-                var removeCandidates = args[2..];
-
-                AnsiConsole.MarkupLine("Remove Candidates are");
-                foreach (var item in removeCandidates)
-                {
-                    Console.WriteLine(item);
-                }
+                AnsiConsole.MarkupLine($"[red]Invalid Argument: [/]{ae.Message}");
+                AnsiConsole.MarkupLine(
+                    $"[yellow]Pro tip:[/] Try replacing [red]\\[/][[\",\']] with [red]/[/][[\",\']]."
+                );
             }
-            else if (args[1].IsEqual(Commands.Repeat))
-            {
-                var isForceDeleteEnabled = args.IndexOf(Flags.Force) != -1;
-                AnsiConsole.MarkupLine("Repeating previous commands");
-                if (isForceDeleteEnabled)
-                    Console.WriteLine("with force");
-            }
-            else
+            catch
             {
                 DisplayInvalidArgumentsMessage();
             }
+        }
+
+        if (ParsedConfig is null)
+        {
             return;
         }
 
-        Configuration parsedConfig;
+        IsForceFlagEnabled = args.IndexOf(Flags.Force) >= 0;
 
         try
         {
-            parsedConfig = Configuration.Parse(args);
-        }
-        catch (ArgumentException ae)
-        {
-            AnsiConsole.MarkupLine($"[red]Invalid Argument: [/]{ae.Message}");
-            AnsiConsole.MarkupLine(
-                $"[yellow]Pro tip:[/] Try replacing [red]\\[/][[\",\']] with [red]/[/][[\",\']]."
-            );
-            return;
-        }
-        catch
-        {
-            DisplayInvalidArgumentsMessage();
-            return;
-        }
-
-        try
-        {
-            DisplayOperationInfoTable(parsedConfig);
-
-            var junkYards = PerformScanOperation(parsedConfig);
+            DisplayOperationInfoTable(ParsedConfig);
+            var junkYards = PerformScanOperation(ParsedConfig);
 
             if (junkYards.Any())
             {
                 DisplayJunkYardTable(junkYards);
-                if (parsedConfig.IsForceDeleteEnabled || AskForRemovalConfirmation())
+                if (IsForceFlagEnabled || AskForRemovalConfirmation())
                 {
                     ExecuteRemoveOperation(junkYards.Select(x => x.Path));
-                }
-                else
-                {
-                    AnsiConsole.MarkupLine("Thanks for using our app.");
                 }
             }
             else
             {
                 AnsiConsole.MarkupLine("[Cyan]0 potential target found. You are good to go.[/]");
             }
+            AnsiConsole.MarkupLine("Thanks for using our app.");
         }
         catch (Exception e)
         {
@@ -134,15 +103,6 @@ class Program
               [yellow]{Flags.RM}[/]         Files or directories to remove. Supports multiple input. Supports Regex.
               [red]{Flags.Force}[/]      Removes files without asking for confirmation. Use this at your own risk.
 
-            Commands:
-              [yellow]history[/]
-                [Magenta]list[/]       List all previously executed commands
-                [Magenta]remove[/]     Remove an item from the memory. 
-                           Example: [gray]history remove C:\Users\{Environment.UserName}\source\repos[/]
-                [Magenta]repeat[/]     Re-run previously executed commands. Supports [red]{Flags.Force}[/] flag.
-                           Example: [gray]history repeat[/]
-                                    [gray]history repeat[/] [red]{Flags.Force}[/]
-
             Misc:
               [yellow]help[/]         Display help message
               [yellow]version[/]      Display app version
@@ -160,8 +120,6 @@ class Program
         AnsiConsole.WriteLine();
     }
 
-    private enum Sensetasdsad { }
-
     private static void DisplayVersionMessage()
     {
         const string message = "1.0.0";
@@ -173,12 +131,12 @@ class Program
         var table = new Table();
         table.AddColumns(string.Empty, string.Empty);
         table.AddRow("Looking for", config.LookFor.Replace("[", "[[").Replace("]", "]]"));
-        table.AddRow("In", string.Join(", ", config.Paths).Replace("[", "[[").Replace("]", "]]"));
+        table.AddRow("In", string.Join(", ", config.LookIns).Replace("[", "[[").Replace("]", "]]"));
         table.AddRow(
             "To delete",
             string.Join(", ", config.RemoveCandidates).Replace("[", "[[").Replace("]", "]]")
         );
-        table.AddRow("Force delete", config.IsForceDeleteEnabled ? "Enabled" : "Disabled");
+        table.AddRow("Force delete", IsForceFlagEnabled ? "Enabled" : "Disabled");
         table.HideHeaders();
 
         AnsiConsole.Write(table);
@@ -218,7 +176,7 @@ class Program
                 ctx =>
                 {
                     stopwatch.Start();
-                    foreach (var item in config.Paths)
+                    foreach (var item in config.LookIns)
                     {
                         var yards = item.GetJunkYardsFromConfig(config);
                         if (yards != null)
@@ -243,12 +201,7 @@ class Program
 
     private static bool AskForRemovalConfirmation()
     {
-        if (!AnsiConsole.Confirm("❗❗❗Remove these items?", false))
-        {
-            return false;
-        }
-
-        return true;
+        return AnsiConsole.Confirm("❗❗❗Remove these items?", false);
     }
 
     private static void ExecuteRemoveOperation(IEnumerable<string> paths)
