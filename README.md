@@ -7,7 +7,7 @@ Crow is a lightweight command-line tool designed to help developers reclaim valu
 ## Usage
 
 ```sh
-Usage:      --lf <file> --in <directory> ... --rm <file> ...
+--lf <file> --in <directory> ... --rm <file> ...
 ```
 
 ## Example
@@ -19,6 +19,7 @@ crow --lf *csproj --in C:\Users\YourUserName\source\repos --rm bin obj
 ```sh
 crow --lf package.json --in C:\Users\YourUserName\jsWorks --rm node_modules
 ```
+> Make sure crow is in your PATH
 
 ### Flags
 
