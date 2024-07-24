@@ -29,14 +29,14 @@ class Program
         {
             try
             {
-                ParsedConfig = Configuration.Parse(args);
+                // We make the args a single string because the shell fails to parse 
+                // into the valid segments when there is an argument ends with \"
+                // So we do segmentation manually.
+                ParsedConfig = Configuration.Parse(string.Join(" ", args));
             }
             catch (ArgumentException ae)
             {
                 AnsiConsole.MarkupLine($"[red]Invalid Argument: [/]{ae.Message}");
-                AnsiConsole.MarkupLine(
-                    $"[yellow]Pro tip:[/] Try replacing [red]\\[/][[\",\']] with [red]/[/][[\",\']]."
-                );
             }
             catch
             {

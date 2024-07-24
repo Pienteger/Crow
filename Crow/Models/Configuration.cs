@@ -1,4 +1,6 @@
-﻿namespace Crow.Models;
+﻿using System.Text;
+
+namespace Crow.Models;
 
 public class Configuration
 {
@@ -6,8 +8,9 @@ public class Configuration
     public required IReadOnlyList<string> RemoveCandidates { get; set; }
     public required IReadOnlyList<string> LookIns { get; set; }
 
-    public static Configuration Parse(string[] args)
+    public static Configuration Parse(string argsStr)
     {
+        var args = argsStr.Split(' ');
         var lfIndex = args.IndexOf(Flags.LF);
         string lfValue =
             lfIndex != -1 && !args[lfIndex + 1].StartsWith('-')
@@ -42,12 +45,28 @@ public class Configuration
                 throw new ArgumentException($"{flag} cannot contain '.'.", flag);
             }
 
-            values.Add(args[i] == "." ? Environment.CurrentDirectory : args[i]);
+            values.Add(args[i] == "." ? Environment.CurrentDirectory : ParseComposite(ref i, args));
         }
 
         if (values.Count == 0)
             throw new ArgumentException($"{flag} value is required.", flag);
 
         return values.Distinct().ToList();
+    }
+
+    private static string ParseComposite(ref int index, string[] args)
+    {
+        char marker = args[index][0];
+        if (marker != '\"' && marker != '\'')
+        {
+            return args[index];
+        }
+        var sb = new StringBuilder();
+        sb.Append(args[index]);
+        while (!args[index].EndsWith(marker) && ++index < args.Length)
+        {
+            sb.Append(' ').Append(args[index]);
+        }
+        return sb.ToString().RemoveWrappingQuotes();
     }
 }

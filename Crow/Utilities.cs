@@ -24,8 +24,19 @@ public static class Utilities
         };
     }
 
+    public static string RemoveWrappingQuotes(this string text)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length < 2)
+            return text;
+        if (text.StartsWith('"') || text.StartsWith('\''))
+            text = text[1..];
+        if (text.EndsWith('"') || text.EndsWith('\''))
+            text = text[..^1];
+        return text;
+    }
+
     /// <summary>
-    /// Case insensitive string comparision 
+    /// Case insensitive string comparision
     /// </summary>
     /// <param name="str1"></param>
     /// <param name="str2"></param>

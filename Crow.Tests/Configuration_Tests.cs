@@ -10,25 +10,15 @@ public class Configuration_Tests
     public void Parse_Should_Return_Valid_Config()
     {
         // Arrange
-        string[] strConfig =
-        [
-            Flags.LF,
-            "*csproj",
-            Flags.IN,
-            "C:\\Users\\Mahmud\\RiderProjects\\",
-            Flags.RM,
-            "bin",
-            "obj",
-            "test 1",
-            "test2"
-        ];
+        string strConfig =
+            $"{Flags.LF} *csproj {Flags.IN} \"C:\\Users\\Mahmud\\RiderProjects\\\" {Flags.RM} \"test 1\" bin obj test2";
 
         // Act
         var config = Configuration.Parse(strConfig);
         var expectation = new Configuration
         {
             LookFor = "*csproj",
-            RemoveCandidates = ["bin", "obj", "test 1", "test2"],
+            RemoveCandidates = ["test 1", "bin", "obj", "test2"],
             LookIns = ["C:\\Users\\Mahmud\\RiderProjects\\"]
         };
 
@@ -39,18 +29,8 @@ public class Configuration_Tests
     [TestMethod]
     public void Rm_Should_Not_Contain_Dot()
     {
-        // Arrange
-        string[] strConfig =
-        [
-            Flags.LF,
-            "*csproj",
-            Flags.IN,
-            "C:\\Users\\Mahmud\\RiderProjects\\",
-            Flags.RM,
-            "bin",
-            ".",
-            "ola bonita"
-        ];
+        string strConfig =
+            $"{Flags.LF} *csproj {Flags.IN} \"C:\\Users\\Mahmud\\RiderProjects\\\" {Flags.RM} \"test 1\" bin . test2";
 
         // Act
         try
