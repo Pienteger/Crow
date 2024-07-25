@@ -2,7 +2,7 @@
 
 namespace Crow.Helpers;
 
-public static class Lasterd
+public static class Scanner
 {
     private static long GetFileSize(string filePath)
     {
