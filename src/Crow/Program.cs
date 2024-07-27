@@ -1,8 +1,6 @@
-﻿using Crow.Helpers;
-using Crow.Models;
+﻿using System.Diagnostics;
+using Crow.Helpers;
 using Spectre.Console;
-using System.Diagnostics;
-using System.Text;
 
 namespace Crow;
 
@@ -13,35 +11,9 @@ class Program
 
     static void Main(string[] args)
     {
-        if (args.Length == 0)
+        if (!ValidateArguments(args))
         {
-            DisplayInvalidArgumentsMessage();
-        }
-        else if (Commands.HelpAliases.IndexOf(args[0]) >= 0)
-        {
-            DisplayHelpMessage();
-        }
-        else if (Commands.VersionAliases.IndexOf(args[0]) >= 0)
-        {
-            DisplayVersionMessage();
-        }
-        else
-        {
-            try
-            {
-                // We make the args a single string because the shell fails to parse 
-                // into the valid segments when there is an argument ends with \"
-                // So we do segmentation manually.
-                ParsedConfig = Configuration.Parse(string.Join(" ", args));
-            }
-            catch (ArgumentException ae)
-            {
-                AnsiConsole.MarkupLine($"[red]Invalid Argument: [/]{ae.Message}");
-            }
-            catch
-            {
-                DisplayInvalidArgumentsMessage();
-            }
+            return;
         }
 
         if (ParsedConfig is null)
@@ -61,62 +33,73 @@ class Program
                 DisplayJunkYardTable(junkYards);
                 if (IsForceFlagEnabled || AskForRemovalConfirmation())
                 {
-                    ExecuteRemoveOperation(junkYards.Select(x => x.Path));
+                    ExecuteRemoveOperation(junkYards);
                 }
             }
             else
             {
-                AnsiConsole.MarkupLine("[Cyan]0 potential target found. You are good to go.[/]");
+                AnsiConsole.MarkupLine(Texts.NOT_TARGET_FOUND);
             }
-            AnsiConsole.MarkupLine("Thanks for using our app.");
+
+            AnsiConsole.MarkupLine(Texts.THANK_YOU);
         }
         catch (Exception e)
         {
-            var sb = new StringBuilder();
-            sb.AppendLine(e.Message);
-            while (e.InnerException is not null)
-            {
-                sb.AppendLine(e.InnerException.Message);
-                e = e.InnerException;
-            }
-            AnsiConsole.MarkupLine(sb.ToString());
+            DisplayExceptionMessages(e);
         }
+    }
+
+    private static bool ValidateArguments(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            DisplayInvalidArgumentsMessage();
+            return false;
+        }
+
+        if (Commands.HelpAliases.IndexOf(args[0]) >= 0)
+        {
+            DisplayHelpMessage();
+            return false;
+        }
+
+        if (Commands.VersionAliases.IndexOf(args[0]) >= 0)
+        {
+            DisplayVersionMessage();
+            return false;
+        }
+
+        try
+        {
+            // We make the args a single string because the shell fails to parse
+            // into the valid segments when there is an argument that ends with \"
+            // So we do segmentation manually.
+            ParsedConfig = Configuration.Parse(string.Join(" ", args));
+        }
+        catch (ArgumentException ae)
+        {
+            AnsiConsole.MarkupLine($"[red]Invalid Argument: [/]{ae.Message}");
+            return false;
+        }
+        catch
+        {
+            DisplayInvalidArgumentsMessage();
+            return false;
+        }
+
+        return true;
     }
 
     #region Display Things
 
     private static void DisplayInvalidArgumentsMessage()
     {
-        const string message = "Invalid arguments. To see help, pass the argument 'help' or 'h'.";
-        Console.WriteLine(message);
+        AnsiConsole.MarkupLine(Texts.INVALID_ARGUMENT);
     }
 
     private static void DisplayHelpMessage()
     {
-        string message = $"""
-            Usage:      {Flags.LF} <file> {Flags.IN} <directory> ... {Flags.RM} <file> ...
-            Example:    [gray]{Flags.LF} *csproj {Flags.IN} C:\Users\{Environment.UserName}\source\repos {Flags.RM} bin obj[/]
-
-            Flags:
-              [yellow]{Flags.LF}[/]         Files or directories to look for. Must be single input. Supports Regex.
-              [yellow]{Flags.IN}[/]         Directories to scan. Supports multiple input.
-              [yellow]{Flags.RM}[/]         Files or directories to remove. Supports multiple input. Supports Regex.
-              [red]{Flags.Force}[/]      Removes files without asking for confirmation. Use this at your own risk.
-
-            Misc:
-              [yellow]help[/]         Display help message
-              [yellow]version[/]      Display app version
-              
-            Note: 
-              1. All flags except {Flags.Force} are [red]required[/].
-              2. Flags are case insensitive. 
-              3. Using [red]{Flags.Force}[/] is not recommended.
-
-            Credits:
-              By  Mahmudul Hasan (https://mahmudx.com)
-              For Pienteger® (https://pienteger.com) Open-Source Softworks
-            """;
-        AnsiConsole.MarkupLine(message);
+        AnsiConsole.MarkupLine(Texts.HELP_TEXT);
         AnsiConsole.WriteLine();
     }
 
@@ -124,6 +107,18 @@ class Program
     {
         const string message = "1.0.0";
         Console.WriteLine(message);
+    }
+
+    private static void DisplayExceptionMessages(Exception e)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(e.Message);
+        while (e.InnerException is not null)
+        {
+            sb.AppendLine(e.InnerException.Message);
+            e = e.InnerException;
+        }
+        AnsiConsole.MarkupLine(sb.ToString());
     }
 
     private static void DisplayOperationInfoTable(Configuration config)
@@ -150,13 +145,15 @@ class Program
         table.AddColumn("Size");
 
         var c = 0;
+        long totalSize = 0;
         foreach (var item in junkYards)
         {
-            table.AddRow($"{++c}", $"{item.Icon} {item.Path}", item.Size.GetSizeWithUnit());
+            table.AddRow($"{++c}", $"{item.Icon} {item.Path}", item.Size.ToUnitText());
+            totalSize += item.Size;
         }
 
         table.AddEmptyRow();
-        var sizeSumWithUnit = junkYards.Sum(x => x.Size).GetSizeWithUnit();
+        var sizeSumWithUnit = totalSize.ToUnitText();
         table.AddRow(string.Empty, "[yellow]Total[/]", $"[yellow]~{sizeSumWithUnit}[/]");
         AnsiConsole.Write(table);
     }
@@ -169,6 +166,7 @@ class Program
     {
         List<JunkYard> junkYards = [];
         var stopwatch = new Stopwatch();
+
         AnsiConsole
             .Status()
             .Start(
@@ -176,19 +174,12 @@ class Program
                 ctx =>
                 {
                     stopwatch.Start();
-                    foreach (var item in config.LookIns)
-                    {
-                        var yards = item.GetJunkYardsFromConfig(config);
-                        if (yards != null)
-                        {
-                            junkYards.AddRange(yards);
-                        }
-                    }
+                    junkYards = config.ScanJunkYards().ToList();
                 }
             );
 
         stopwatch.Stop();
-        var time = stopwatch.ElapsedMilliseconds.GetTimeFromMs();
+        var time = stopwatch.ElapsedMilliseconds.ToTimeText();
         var rule = new Rule($"[green]Scan finished. {time} taken[/]")
         {
             Justification = Justify.Left
@@ -204,39 +195,17 @@ class Program
         return AnsiConsole.Confirm("❗❗❗Remove these items?", false);
     }
 
-    private static void ExecuteRemoveOperation(IEnumerable<string> paths)
+    private static void ExecuteRemoveOperation(IEnumerable<JunkYard> junkYards)
     {
         AnsiConsole
-            .Progress()
-            .Start(ctx =>
-            {
-                // Define tasks
-                var task1 = ctx.AddTask("[red]Removing items:[/]");
-                var length = paths.Count();
-                foreach (var rmTarget in paths)
+            .Status()
+            .Start(
+                "Removing junks...",
+                ctx =>
                 {
-                    try
-                    {
-                        if (File.Exists(rmTarget))
-                        {
-                            AnsiConsole.MarkupLine($"Removing file: {rmTarget}");
-                            File.Delete(rmTarget);
-                        }
-                        else if (Directory.Exists(rmTarget))
-                        {
-                            AnsiConsole.MarkupLine($"Removing directory: {rmTarget}");
-                            Directory.Delete(rmTarget, true);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        AnsiConsole.MarkupLine($"[red]Error: {e.Message}.[/]");
-                        AnsiConsole.MarkupLine($"Ignoring {rmTarget}");
-                    }
-                    task1.Increment(100 / length);
+                    junkYards.CleanJunkYards();
                 }
-            });
-
+            );
         AnsiConsole.MarkupLine($"[green]Done![/]");
     }
 

@@ -1,6 +1,4 @@
-﻿using System.Text;
-
-namespace Crow.Models;
+﻿namespace Crow.Models;
 
 public class Configuration
 {
