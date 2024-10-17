@@ -4,34 +4,34 @@ using Spectre.Console;
 
 namespace Crow;
 
-class Program
+public static class Program
 {
-    private static bool IsForceFlagEnabled;
-    private static Configuration? ParsedConfig;
+    private static bool isForceFlagEnabled;
+    private static Configuration? parsedConfig;
 
-    static void Main(string[] args)
+    public static void Main(string[] args)
     {
         if (!ValidateArguments(args))
         {
             return;
         }
 
-        if (ParsedConfig is null)
+        if (parsedConfig is null)
         {
             return;
         }
 
-        IsForceFlagEnabled = args.IndexOf(Flags.Force) >= 0;
+        isForceFlagEnabled = args.IndexOf(Flags.FORCE) >= 0;
 
         try
         {
-            DisplayOperationInfoTable(ParsedConfig);
-            var junkYards = PerformScanOperation(ParsedConfig);
+            DisplayOperationInfoTable(parsedConfig);
+            var junkYards = PerformScanOperation(parsedConfig).ToList();
 
-            if (junkYards.Any())
+            if (junkYards.Count != 0)
             {
                 DisplayJunkYardTable(junkYards);
-                if (IsForceFlagEnabled || AskForRemovalConfirmation())
+                if (isForceFlagEnabled || AskForRemovalConfirmation())
                 {
                     ExecuteRemoveOperation(junkYards);
                 }
@@ -74,7 +74,7 @@ class Program
             // We make the args a single string because the shell fails to parse
             // into the valid segments when there is an argument that ends with \"
             // So we do segmentation manually.
-            ParsedConfig = Configuration.Parse(string.Join(" ", args));
+            parsedConfig = Configuration.Parse(string.Join(" ", args));
         }
         catch (ArgumentException ae)
         {
@@ -105,7 +105,7 @@ class Program
 
     private static void DisplayVersionMessage()
     {
-        const string message = "1.0.0";
+        const string message = "1.1.0";
         Console.WriteLine(message);
     }
 
@@ -118,20 +118,28 @@ class Program
             sb.AppendLine(e.InnerException.Message);
             e = e.InnerException;
         }
+
         AnsiConsole.MarkupLine(sb.ToString());
     }
 
     private static void DisplayOperationInfoTable(Configuration config)
     {
+        static string EscapeBrackets(string input) => input.Replace("[", "[[").Replace("]", "]]");
+
         var table = new Table();
         table.AddColumns(string.Empty, string.Empty);
-        table.AddRow("Looking for", config.LookFor.Replace("[", "[[").Replace("]", "]]"));
-        table.AddRow("In", string.Join(", ", config.LookIns).Replace("[", "[[").Replace("]", "]]"));
-        table.AddRow(
-            "To delete",
-            string.Join(", ", config.RemoveCandidates).Replace("[", "[[").Replace("]", "]]")
-        );
-        table.AddRow("Force delete", IsForceFlagEnabled ? "Enabled" : "Disabled");
+        // Add rows, escaping special characters as needed
+        table.AddRow("Looking for", EscapeBrackets(config.LookFor));
+        table.AddRow("In", EscapeBrackets(string.Join(", ", config.LookIns)));
+        table.AddRow("To delete", EscapeBrackets(string.Join(", ", config.RemoveCandidates)));
+
+        // Only add "Ignoring" row if there are any ignores
+        if (config.Ignores.Any())
+        {
+            table.AddRow("Ignoring", EscapeBrackets(string.Join(", ", config.Ignores)));
+        }
+
+        table.AddRow("Force delete", isForceFlagEnabled ? "Enabled" : "Disabled");
         table.HideHeaders();
 
         AnsiConsole.Write(table);
@@ -171,7 +179,7 @@ class Program
             .Status()
             .Start(
                 "Scanning...",
-                ctx =>
+                _ =>
                 {
                     stopwatch.Start();
                     junkYards = config.ScanJunkYards().ToList();
@@ -201,7 +209,7 @@ class Program
             .Status()
             .Start(
                 "Removing junks...",
-                ctx =>
+                _ =>
                 {
                     junkYards.CleanJunkYards();
                 }

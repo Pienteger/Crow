@@ -1,32 +1,31 @@
 ﻿using Spectre.Console;
 
-namespace Crow.Helpers
+namespace Crow.Helpers;
+
+public static class JunkYardCleaner
 {
-    public static class JunkYardCleaner
+    public static void CleanJunkYards(this IEnumerable<JunkYard> junkYards)
     {
-        public static void CleanJunkYards(this IEnumerable<JunkYard> junkYards)
+        foreach (var junkYard in junkYards)
         {
-            foreach (var junkYard in junkYards)
+            var rmTarget = junkYard.Path;
+            try
             {
-                var rmTarget = junkYard.Path;
-                try
+                if (File.Exists(rmTarget))
                 {
-                    if (File.Exists(rmTarget))
-                    {
-                        AnsiConsole.MarkupLine($"Removing file: {rmTarget}");
-                        File.Delete(rmTarget);
-                    }
-                    else if (Directory.Exists(rmTarget))
-                    {
-                        AnsiConsole.MarkupLine($"Removing directory: {rmTarget}");
-                        Directory.Delete(rmTarget, true);
-                    }
+                    AnsiConsole.MarkupLine($"Removing file: {rmTarget}");
+                    File.Delete(rmTarget);
                 }
-                catch (Exception e)
+                else if (Directory.Exists(rmTarget))
                 {
-                    AnsiConsole.MarkupLine($"[red]Error: {e.Message}.[/]");
-                    AnsiConsole.MarkupLine($"Ignoring {rmTarget}");
+                    AnsiConsole.MarkupLine($"Removing directory: {rmTarget}");
+                    Directory.Delete(rmTarget, true);
                 }
+            }
+            catch (Exception e)
+            {
+                AnsiConsole.MarkupLine($"[red]Error: {e.Message}.[/]");
+                AnsiConsole.MarkupLine($"Ignoring {rmTarget}");
             }
         }
     }

@@ -1,25 +1,27 @@
 ﻿namespace Crow;
 
-internal class Texts
+internal static class Texts
 {
     public static string HELP_TEXT = $"""
             Usage:      {Flags.LF} <file> {Flags.IN} <directory> ... {Flags.RM} <file> ...
             Example:    [gray]{Flags.LF} *csproj {Flags.IN} C:\Users\{Environment.UserName}\source\repos {Flags.RM} bin obj[/]
+                        [gray]{Flags.LF} *csproj {Flags.IN} C:\Users\{Environment.UserName}\source\repos {Flags.RM} bin obj {Flags.IG} AppData[/]
 
             Flags:
             [yellow]{Flags.LF}[/]         Files or directories to look for. Must be single input. Supports Regex.
             [yellow]{Flags.IN}[/]         Directories to scan. Supports multiple input.
             [yellow]{Flags.RM}[/]         Files or directories to remove. Supports multiple input. Supports Regex.
-            [red]{Flags.Force}[/]      Removes files without asking for confirmation. Use this at your own risk.
+            [yellow]{Flags.IG}[/]         Files or directories to ignore. Supports multiple input.
+            [red]{Flags.FORCE}[/]      Removes files without asking for confirmation. Use this at your own risk.
 
             Misc:
             [yellow]help[/]         Display help message
             [yellow]version[/]      Display app version
               
             Note: 
-            1. All flags except {Flags.Force} are [red]required[/].
+            1. All flags except {Flags.FORCE} are [red]required[/].
             2. Flags are case insensitive. 
-            3. Using [red]{Flags.Force}[/] is not recommended.
+            3. Using [red]{Flags.FORCE}[/] is not recommended.
 
             Credits:
             By  Mahmudul Hasan (https://mahmudx.com)

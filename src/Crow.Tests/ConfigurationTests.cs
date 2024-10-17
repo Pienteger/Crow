@@ -4,13 +4,13 @@ using FluentAssertions;
 namespace Crow.Tests;
 
 [TestClass]
-public class Configuration_Tests
+public class ConfigurationTests
 {
     [TestMethod]
     public void Parse_Should_Return_Valid_Config()
     {
         // Arrange
-        string strConfig =
+        const string strConfig =
             $"{Flags.LF} *csproj {Flags.IN} \"C:\\Users\\Mahmud\\RiderProjects\\\" {Flags.RM} \"test 1\" bin obj test2";
 
         // Act
@@ -19,7 +19,8 @@ public class Configuration_Tests
         {
             LookFor = "*csproj",
             RemoveCandidates = ["test 1", "bin", "obj", "test2"],
-            LookIns = ["C:\\Users\\Mahmud\\RiderProjects\\"]
+            LookIns = [@"C:\Users\Mahmud\RiderProjects\"],
+            Ignores = []
         };
 
         // Assert
@@ -29,7 +30,7 @@ public class Configuration_Tests
     [TestMethod]
     public void Rm_Should_Not_Contain_Dot()
     {
-        string strConfig =
+        const string strConfig =
             $"{Flags.LF} *csproj {Flags.IN} \"C:\\Users\\Mahmud\\RiderProjects\\\" {Flags.RM} \"test 1\" bin . test2";
 
         // Act

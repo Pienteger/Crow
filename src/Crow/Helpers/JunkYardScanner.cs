@@ -18,7 +18,7 @@ public static class JunkYardScanner
 
             var directoryInfo = new DirectoryInfo(path);
 
-            foreach (JunkYard junk in directoryInfo.GetJunkYards(config))
+            foreach (var junk in directoryInfo.GetJunkYards(config))
             {
                 yield return junk;
             }
@@ -37,7 +37,7 @@ public static class JunkYardScanner
 
         long startDirectorySize = 0;
 
-        foreach (FileInfo fileInfo in directory.GetFiles())
+        foreach (var fileInfo in directory.GetFiles())
         {
             Interlocked.Add(ref startDirectorySize, fileInfo.Length);
         }
@@ -56,7 +56,11 @@ public static class JunkYardScanner
         Configuration config
     )
     {
-        if (directoryInfo is null)
+        if (
+            directoryInfo is null
+            || !directoryInfo.Exists
+            || config.Ignores.Contains(directoryInfo.FullName)
+        )
             yield break;
 
         FileInfo[] files;
@@ -79,29 +83,28 @@ public static class JunkYardScanner
         // Search through all the files to find target directories or files where
         // certain identifiers exists
 
-        foreach (FileInfo file in files)
+        foreach (var file in files)
         {
-            if (Sherlock.MatchesPattern(config.LookFor, file.Name.AsSpan(), MatchType.Win32))
-            {
-                isJunkFolder = true;
+            if (!Sherlock.MatchesPattern(config.LookFor, file.Name.AsSpan(), MatchType.Win32))
+                continue;
+            isJunkFolder = true;
 
-                foreach (string target in config.RemoveCandidates)
+            foreach (var target in config.RemoveCandidates)
+            {
+                foreach (var junkYard in FindJunkYards(directories, files, target))
                 {
-                    foreach (var junkYard in FindJunkYards(directories, files, target))
-                    {
-                        yield return junkYard;
-                    }
+                    yield return junkYard;
                 }
-                break;
             }
+            break;
         }
 
         if (isJunkFolder)
             yield break;
 
-        foreach (DirectoryInfo directory in directories)
+        foreach (var directory in directories)
         {
-            foreach (JunkYard junk in directory.GetJunkYards(config))
+            foreach (var junk in directory.GetJunkYards(config))
             {
                 yield return junk;
             }
@@ -114,7 +117,7 @@ public static class JunkYardScanner
         string target
     )
     {
-        foreach (DirectoryInfo directory in directories)
+        foreach (var directory in directories)
         {
             if (Sherlock.MatchesPattern(target, directory.Name.AsSpan(), MatchType.Win32))
             {
@@ -126,7 +129,7 @@ public static class JunkYardScanner
             }
         }
 
-        foreach (FileInfo file in files)
+        foreach (var file in files)
         {
             if (Sherlock.MatchesPattern(target, file.Name.AsSpan(), MatchType.Win32))
             {

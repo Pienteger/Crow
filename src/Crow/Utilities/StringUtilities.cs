@@ -15,10 +15,17 @@ public static class StringUtilities
     {
         if (string.IsNullOrEmpty(text) || text.Length < 2)
             return text;
-        if (text.StartsWith('"') || text.StartsWith('\''))
-            text = text[1..];
-        if (text.EndsWith('"') || text.EndsWith('\''))
-            text = text[..^1];
+
+        // Check if both the start and end have matching quotes
+        if (
+            (text.StartsWith('"') && text.EndsWith('"'))
+            || (text.StartsWith('\'') && text.EndsWith('\''))
+        )
+        {
+            // Remove both the starting and ending quote
+            text = text[1..^1];
+        }
+
         return text;
     }
 
@@ -42,10 +49,10 @@ public static class StringUtilities
     /// <returns>The index of the value in the array if found; otherwise, -1.</returns>
     public static int IndexOf(this string[] array, string value)
     {
-        if (array is null || array.Length == 0)
+        if (array.Length == 0)
             return -1;
 
-        for (int i = 0; i < array.Length; i++)
+        for (var i = 0; i < array.Length; i++)
         {
             if (array[i].IsEqual(value))
                 return i;
