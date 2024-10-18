@@ -17,15 +17,10 @@ Crow is a lightweight command-line tool designed to help developers reclaim valu
 6. Run `crow help` to verify the installation.
 
 ### Caution
+
 To set the execution policy, you may need to run the shell as an admin.
 
-## Usage
-
-```sh
---lf <file> --in <directory> ... --rm <file> ...
-```
-
-## Example
+## Example Usage
 
 ```sh
 crow --lf *csproj --in C:\Users\YourUserName\source\repos --rm bin obj
@@ -34,21 +29,22 @@ crow --lf *csproj --in C:\Users\YourUserName\source\repos --rm bin obj
 ```sh
 crow --lf package.json --in C:\Users\YourUserName\jsWorks --rm node_modules
 ```
+
+```sh
+crow --lf package.json --in C:\Users\YourUserName\jsWorks --rm node_modules --ig AppData
+```
+
 > Make sure crow is in your PATH
 
 ### Flags
 
-- `--lf`  
-  Files or directories to look for. Must be a single input. Supports Regex.
-
-- `--in`  
-  Directories to scan. Supports multiple input.
-
-- `--rm`  
-  Files or directories to remove. Supports multiple input. Supports Regex.
-
-- `--force`  
-  Removes files without asking for confirmation. Use this at your own risk.
+|Flag|Description|Remark|
+|---|---|---|
+|`--lf`|Files or directories to look for|Required|
+|`--in`|Directories to scan|Required|
+|`--rm`|Files or directories to remove|Required|
+|`--ig`|Directories to ignore|Optional|
+|`--force`|Removes files without asking for confirmation|Optional|
 
 ### Misc
 
@@ -60,6 +56,5 @@ crow --lf package.json --in C:\Users\YourUserName\jsWorks --rm node_modules
 
 ### Note
 
-1. All flags except `--force` are required.
-2. Flags are case insensitive.
-3. Using `--force` is not recommended.
+1. Flags are case insensitive.
+2. Using `--force` is not recommended.
