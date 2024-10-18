@@ -39,7 +39,7 @@ public sealed class Configuration
         var lfIndex = args.IndexOf(Flags.LF);
         if (lfIndex == -1 || lfIndex + 1 >= args.Length || args[lfIndex + 1].StartsWith('-'))
         {
-            throw new ArgumentException($"{Flags.LF} value is required.", Flags.LF);
+            throw new ArgumentException($"{Flags.LF} value is required.", nameof(args));
         }
 
         return args[lfIndex + 1];

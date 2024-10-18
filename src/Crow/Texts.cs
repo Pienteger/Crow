@@ -2,7 +2,7 @@
 
 internal static class Texts
 {
-    public static string HELP_TEXT = $"""
+    public static readonly string HELP_TEXT = $"""
             Usage:      {Flags.LF} <file> {Flags.IN} <directory> ... {Flags.RM} <file> ...
             Example:    [gray]{Flags.LF} *csproj {Flags.IN} C:\Users\{Environment.UserName}\source\repos {Flags.RM} bin obj[/]
                         [gray]{Flags.LF} *csproj {Flags.IN} C:\Users\{Environment.UserName}\source\repos {Flags.RM} bin obj {Flags.IG} AppData[/]

@@ -1,7 +1,8 @@
 ﻿// This file implements Microsoft File Search Algorithm
 // Do not extend or modify this unless you know exactly what you are doing.
 using System.IO.Enumeration;
-
+// ReSharper disable CognitiveComplexity
+// NOSONAR
 namespace Crow.Helpers;
 
 public static class Sherlock

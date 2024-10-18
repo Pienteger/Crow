@@ -6,26 +6,25 @@ public static class JunkYardCleaner
 {
     public static void CleanJunkYards(this IEnumerable<JunkYard> junkYards)
     {
-        foreach (var junkYard in junkYards)
+        foreach (var junkYard in junkYards.Select(j=>j.Path))
         {
-            var rmTarget = junkYard.Path;
             try
             {
-                if (File.Exists(rmTarget))
+                if (File.Exists(junkYard))
                 {
-                    AnsiConsole.MarkupLine($"Removing file: {rmTarget}");
-                    File.Delete(rmTarget);
+                    AnsiConsole.MarkupLine($"Removing file: {junkYard}");
+                    File.Delete(junkYard);
                 }
-                else if (Directory.Exists(rmTarget))
+                else if (Directory.Exists(junkYard))
                 {
-                    AnsiConsole.MarkupLine($"Removing directory: {rmTarget}");
-                    Directory.Delete(rmTarget, true);
+                    AnsiConsole.MarkupLine($"Removing directory: {junkYard}");
+                    Directory.Delete(junkYard, true);
                 }
             }
             catch (Exception e)
             {
                 AnsiConsole.MarkupLine($"[red]Error: {e.Message}.[/]");
-                AnsiConsole.MarkupLine($"Ignoring {rmTarget}");
+                AnsiConsole.MarkupLine($"Ignoring {junkYard}");
             }
         }
     }

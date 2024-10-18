@@ -32,7 +32,7 @@ public static class JunkYardScanner
 
     private static long CalculateDirectorySize(DirectoryInfo directory)
     {
-        if (directory is not { Exists: true })
+        if (directory is not {Exists: true})
             return 0;
 
         long startDirectorySize = 0;
@@ -96,6 +96,7 @@ public static class JunkYardScanner
                     yield return junkYard;
                 }
             }
+
             break;
         }
 
@@ -117,24 +118,23 @@ public static class JunkYardScanner
         string target
     )
     {
-        foreach (var directory in directories)
+        var validDirectoryPaths =
+            directories.Where(d => Sherlock.MatchesPattern(target, d.Name.AsSpan(), MatchType.Win32));
+
+        foreach (var directory in validDirectoryPaths)
         {
-            if (Sherlock.MatchesPattern(target, directory.Name.AsSpan(), MatchType.Win32))
-            {
-                yield return new JunkYard(
-                    directory.FullName,
-                    CalculateDirectorySize(directory),
-                    JunkType.Directory
-                );
-            }
+            yield return new JunkYard(
+                directory.FullName,
+                CalculateDirectorySize(directory),
+                JunkType.Directory
+            );
         }
 
-        foreach (var file in files)
+        var validFilePaths = files.Where(f => Sherlock.MatchesPattern(target, f.Name.AsSpan(), MatchType.Win32))
+            .Select(x => x.FullName);
+        foreach (var filePath in validFilePaths)
         {
-            if (Sherlock.MatchesPattern(target, file.Name.AsSpan(), MatchType.Win32))
-            {
-                yield return new JunkYard(file.FullName, GetFileSize(file.FullName), JunkType.File);
-            }
+            yield return new JunkYard(filePath, GetFileSize(filePath), JunkType.File);
         }
     }
 }
