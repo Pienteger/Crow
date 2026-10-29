@@ -10,8 +10,8 @@ public class ArrayExtensionsTests
     public void IndexOf_ShouldReturnCorrectIndex_WhenValueExistsInArray()
     {
         string[] array = ["apple", "banana", "cherry"];
-        string value = "Banana";
-        int result = array.IndexOf(value);
+        var value = "Banana";
+        var result = array.IndexOf(value);
         result.Should().Be(1);
     }
 
@@ -19,8 +19,8 @@ public class ArrayExtensionsTests
     public void IndexOf_ShouldReturnNegativeOne_WhenValueDoesNotExistInArray()
     {
         string[] array = ["apple", "banana", "cherry"];
-        string value = "grape";
-        int result = array.IndexOf(value);
+        var value = "grape";
+        var result = array.IndexOf(value);
         result.Should().Be(-1);
     }
 
@@ -28,8 +28,8 @@ public class ArrayExtensionsTests
     public void IndexOf_ShouldReturnNegativeOne_WhenArrayIsNull()
     {
         string[] array = null;
-        string value = "banana";
-        int result = array.IndexOf(value);
+        var value = "banana";
+        var result = array.IndexOf(value);
         result.Should().Be(-1);
     }
 
@@ -37,8 +37,8 @@ public class ArrayExtensionsTests
     public void IndexOf_ShouldReturnNegativeOne_WhenArrayIsEmpty()
     {
         string[] array = [];
-        string value = "banana";
-        int result = array.IndexOf(value);
+        var value = "banana";
+        var result = array.IndexOf(value);
         result.Should().Be(-1);
     }
 }

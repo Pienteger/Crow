@@ -1,6 +1,7 @@
 ﻿// This file implements Microsoft File Search Algorithm
 // Do not extend or modify this unless you know exactly what you are doing.
 using System.IO.Enumeration;
+
 // ReSharper disable CognitiveComplexity
 // NOSONAR
 namespace Crow.Helpers;
@@ -17,7 +18,7 @@ public static class Sherlock
         {
             MatchType.Simple => FileSystemName.MatchesSimpleExpression(expression.AsSpan(), name),
             MatchType.Win32 => FileSystemName.MatchesWin32Expression(expression.AsSpan(), name),
-            _ => throw new ArgumentOutOfRangeException(nameof(matchType))
+            _ => throw new ArgumentOutOfRangeException(nameof(matchType)),
         };
     }
 
@@ -128,11 +129,11 @@ public static class Sherlock
             if (expression.Length == 1)
                 return true;
 
-            ReadOnlySpan<char> expressionEnd = expression.Slice(1);
+            var expressionEnd = expression.Slice(1);
 
             // [MS - FSA] 2.1.4.4 Algorithm for Determining if a FileName Is in an Expression
             // https://msdn.microsoft.com/en-us/library/ff469270.aspx
-            bool hasWildcards = useExtendedWildcards
+            var hasWildcards = useExtendedWildcards
                 ? expressionEnd.ContainsAny("\"<>*?")
                 : expressionEnd.ContainsAny('*', '?');
             if (!hasWildcards)
@@ -162,7 +163,7 @@ public static class Sherlock
         Span<int> priorMatches = stackalloc int[16];
         priorMatches[0] = 0;
 
-        int maxState = expression.Length * 2;
+        var maxState = expression.Length * 2;
         int currentState;
         var nameFinished = false;
 
@@ -213,18 +214,18 @@ public static class Sherlock
                 // We have to carry on our expression analysis as far as possible for each
                 // character of name, so we loop here until the expression stops matching.
 
-                int expressionOffset = (priorMatches[priorMatch++] + 1) / 2;
+                var expressionOffset = (priorMatches[priorMatch++] + 1) / 2;
 
                 while (expressionOffset < expression.Length)
                 {
                     currentState = expressionOffset * 2;
-                    char expressionChar = expression[expressionOffset];
+                    var expressionChar = expression[expressionOffset];
 
                     // We may be about to exhaust the local space for matches,
                     // so we have to reallocate if this is the case.
                     if (currentMatch >= currentMatches.Length - 2)
                     {
-                        int newSize = currentMatches.Length * 2;
+                        var newSize = currentMatches.Length * 2;
                         temp = new int[newSize];
                         currentMatches.CopyTo(temp);
                         currentMatches = temp;
@@ -249,7 +250,7 @@ public static class Sherlock
                         var notLastPeriod = false;
                         if (!nameFinished && nameChar == '.')
                         {
-                            for (int offset = nameOffset; offset < name.Length; offset++)
+                            for (var offset = nameOffset; offset < name.Length; offset++)
                             {
                                 if (name[offset] == '.')
                                 {
@@ -364,7 +365,7 @@ public static class Sherlock
                 {
                     while (priorMatchCount < currentMatch)
                     {
-                        int previousLength = priorMatches.Length;
+                        var previousLength = priorMatches.Length;
                         while (
                             priorMatch < previousLength
                             && priorMatches[priorMatch] < currentMatches[priorMatchCount]

@@ -1,0 +1,1 @@
+dotnet publish Crow/Crow.csproj -c Release -r win-x64 -p:PublishAot=true -p:OptimizationPreference=Size -p:StripSymbols=true -o ../publish

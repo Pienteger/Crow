@@ -1,13 +1,15 @@
 ﻿namespace Crow.Models;
 
-public sealed class Configuration
+public sealed class ScanDeleteConfiguration
 {
     public required string LookFor { get; init; }
     public required IReadOnlyList<string> RemoveCandidates { get; init; }
     public required IReadOnlyList<string> LookIns { get; init; }
     public required IReadOnlyList<string> Ignores { get; init; }
 
-    public static Configuration Parse(string argsStr)
+    public bool IsForceEnabled { get; init; }
+
+    public static ScanDeleteConfiguration Parse(string argsStr)
     {
         // Validate the argument string
         if (string.IsNullOrWhiteSpace(argsStr))
@@ -25,12 +27,13 @@ public sealed class Configuration
         var inValues = ParseFlagParts(Flags.IN, args);
         var igValues = ParseFlagParts(Flags.IG, args);
 
-        return new Configuration
+        return new ScanDeleteConfiguration
         {
             LookFor = lfValue,
             RemoveCandidates = rmValues,
             LookIns = inValues,
-            Ignores = igValues
+            Ignores = igValues,
+            IsForceEnabled = args.IndexOf(Flags.FORCE) >= 0
         };
     }
 
@@ -45,7 +48,7 @@ public sealed class Configuration
         return args[lfIndex + 1];
     }
 
-    private static List<string> ParseFlagParts(string flag, string[] args)
+    internal static List<string> ParseFlagParts(string flag, string[] args)
     {
         var sIndex = args.IndexOf(flag);
 

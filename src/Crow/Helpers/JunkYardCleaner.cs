@@ -4,28 +4,43 @@ namespace Crow.Helpers;
 
 public static class JunkYardCleaner
 {
-    public static void CleanJunkYards(this IEnumerable<JunkYard> junkYards)
+    /// <summary>
+    /// Removes every junkyard, keeps going past failures, and returns the totals.
+    /// </summary>
+    public static CleanResult CleanJunkYards(this IEnumerable<JunkYard> junkYards)
     {
-        foreach (var junkYard in junkYards.Select(j=>j.Path))
+        long freed = 0;
+        int deleted = 0, skipped = 0;
+
+        foreach (var junkYard in junkYards)
         {
-            try
+            var path = Markup.Escape(junkYard.Path);
+            CleanResult result;
+
+            if (junkYard.JunkType == JunkType.File)
             {
-                if (File.Exists(junkYard))
-                {
-                    AnsiConsole.MarkupLine($"Removing file: {junkYard}");
-                    File.Delete(junkYard);
-                }
-                else if (Directory.Exists(junkYard))
-                {
-                    AnsiConsole.MarkupLine($"Removing directory: {junkYard}");
-                    Directory.Delete(junkYard, true);
-                }
+                AnsiConsole.MarkupLine($"Removing file: {path}");
+                result = SafeFileSystem.TryDeleteFile(junkYard.Path)
+                    ? new CleanResult(junkYard.Size, 1, 0)
+                    : new CleanResult(0, 0, 1);
             }
-            catch (Exception e)
+            else
             {
-                AnsiConsole.MarkupLine($"[red]Error: {e.Message}.[/]");
-                AnsiConsole.MarkupLine($"Ignoring {junkYard}");
+                AnsiConsole.MarkupLine($"Removing directory: {path}");
+                result = SafeFileSystem.DeleteTree(junkYard.Path);
             }
+
+            if (result.SkippedCount > 0)
+            {
+                AnsiConsole.MarkupLine(
+                    $"[yellow]  {result.SkippedCount:N0} item(s) could not be removed from {path}[/]");
+            }
+
+            freed += result.FreedBytes;
+            deleted += result.DeletedCount;
+            skipped += result.SkippedCount;
         }
+
+        return new CleanResult(freed, deleted, skipped);
     }
 }

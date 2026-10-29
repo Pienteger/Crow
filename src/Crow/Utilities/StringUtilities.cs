@@ -49,7 +49,7 @@ public static class StringUtilities
     /// <returns>The index of the value in the array if found; otherwise, -1.</returns>
     public static int IndexOf(this string[] array, string value)
     {
-        if (array.Length == 0)
+        if (array is null || array.Length == 0)
             return -1;
 
         for (var i = 0; i < array.Length; i++)
