@@ -16,4 +16,7 @@
 	<ItemGroup>
 		<PackageReference Include="Spectre.Console" Version="0.53.0" />
 	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="Crow.Tests" />
+	</ItemGroup>
 </Project>

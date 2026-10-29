@@ -3,8 +3,8 @@
 internal static class Texts
 {
     public static readonly string HELP_TEXT = $"""
-            Usage:      crow clean [{Flags.DRY_RUN}] [{Flags.ALL}] [{Flags.OLDER_THAN} <hours>] [{Flags.FORCE}]
-                        crow dev {Flags.IN} <directory> ... [{Flags.IG} <directory> ...] [{Flags.FORCE}]
+            Usage:      crow clean [[{Flags.DRY_RUN}]] [[{Flags.ALL}]] [[{Flags.OLDER_THAN} <hours>]] [[{Flags.FORCE}]]
+                        crow dev {Flags.IN} <directory> ... [[{Flags.IG} <directory> ...]] [[{Flags.FORCE}]]
                         crow {Flags.LF} <file> {Flags.IN} <directory> ... {Flags.RM} <file> ...
 
             Example:    [gray]crow clean[/]
