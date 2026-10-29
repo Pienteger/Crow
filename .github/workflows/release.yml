@@ -1,0 +1,203 @@
+# Builds Crow with Native AOT and publishes a GitHub release.
+#
+# Release by pushing a tag:     git tag v1.2.0 && git push origin v1.2.0
+# Or run it from the Actions tab ("Run workflow") with a version; the tag is created for you.
+# Versions with a suffix (1.3.0-beta.1) are published as pre-releases.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v (e.g. 1.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+    steps:
+      - name: Resolve and validate version
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            version="${INPUT_VERSION#v}"
+          else
+            version="${REF_NAME#v}"
+          fi
+
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' is not a valid version (expected e.g. 1.2.0 or 1.3.0-beta.1)"
+            exit 1
+          fi
+
+          prerelease=false
+          [[ "$version" == *-* ]] && prerelease=true
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$version (pre-release: $prerelease)"
+
+  test:
+    name: Test
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run tests
+        run: dotnet test src/Crow.slnx -c Release
+
+  build:
+    name: Build ${{ matrix.rid }}
+    needs: [version, test]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+          - rid: win-arm64
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      RID: ${{ matrix.rid }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # The AOT linker locates MSVC through vswhere, which is not always on PATH.
+      - name: Put vswhere on PATH
+        run: Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
+      - name: Publish (Native AOT)
+        run: >
+          dotnet publish src/Crow/Crow.csproj
+          -c Release
+          -r $env:RID
+          -p:PublishAot=true
+          -p:OptimizationPreference=Size
+          -p:StripSymbols=true
+          -p:Version=$env:VERSION
+          -o out
+
+      - name: Smoke test
+        run: |
+          $reported = (& ./out/Crow.exe version | Out-String).Trim()
+          if ($reported -ne $env:VERSION) {
+            throw "Crow.exe reports version '$reported', expected '$env:VERSION'"
+          }
+          & ./out/Crow.exe help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "crow help exited with $LASTEXITCODE" }
+          & ./out/Crow.exe clean --dry-run
+          if ($LASTEXITCODE -ne 0) { throw "crow clean --dry-run exited with $LASTEXITCODE" }
+
+      - name: Package
+        run: |
+          $name = "Crow-$env:RID"
+          New-Item -ItemType Directory -Path "package/$name" -Force | Out-Null
+          Copy-Item out/Crow.exe "package/$name/crow.exe"
+          Copy-Item setup/setup.ps1 "package/$name/setup.ps1"
+          Copy-Item LICENSE.txt "package/$name/LICENSE.txt"
+          Compress-Archive -Path "package/$name" -DestinationPath "$name.zip" -CompressionLevel Optimal
+
+          $hash = (Get-FileHash "$name.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name.zip" | Out-File "$name.zip.sha256" -Encoding ascii -NoNewline
+
+          $size = [math]::Round((Get-Item out/Crow.exe).Length / 1MB, 2)
+          "| $env:RID | $size MB |" | Out-File "$name.size.md" -Encoding utf8 -NoNewline
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Crow-${{ matrix.rid }}
+          path: |
+            Crow-${{ matrix.rid }}.zip
+            Crow-${{ matrix.rid }}.zip.sha256
+            Crow-${{ matrix.rid }}.size.md
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Write release notes
+        run: |
+          {
+            echo "## Install"
+            echo
+            echo "1. Download the zip for your machine (\`win-x64\` for most PCs, \`win-arm64\` for ARM devices)."
+            echo "2. Unzip it, right-click \`setup.ps1\` and choose **Run with PowerShell**."
+            echo "3. Reopen your terminal and run \`crow help\`."
+            echo
+            echo "Native AOT builds: a single exe with no .NET runtime required."
+            echo
+            echo "| Platform | crow.exe |"
+            echo "|---|---|"
+            for f in dist/*.size.md; do cat "$f"; echo; done
+            echo
+            echo "SHA-256 checksums are attached as \`.sha256\` files."
+          } > notes.md
+          cat notes.md
+
+      - name: Create release
+        run: |
+          tag="v$VERSION"
+          flags=()
+          [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
+
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "::error::Release $tag already exists. Delete it or release a new version."
+            exit 1
+          fi
+
+          gh release create "$tag" \
+            dist/*.zip dist/*.sha256 \
+            --title "Crow $tag" \
+            --notes-file notes.md \
+            --generate-notes \
+            --target "$GITHUB_SHA" \
+            "${flags[@]}"

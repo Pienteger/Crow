@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 using Crow.Helpers;
 using Spectre.Console;
 
@@ -186,8 +187,13 @@ public static class Program
 
     private static void DisplayVersionMessage()
     {
-        const string message = "1.2.0";
-        Console.WriteLine(message);
+        // Set by <Version> in the csproj, or -p:Version=... in the release workflow.
+        var version = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion ?? "unknown";
+
+        // Drop the "+<commit sha>" suffix the SDK appends.
+        Console.WriteLine(version.Split('+')[0]);
     }
 
     private static void DisplayExceptionMessages(Exception e)
