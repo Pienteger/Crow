@@ -72,7 +72,7 @@ public static class SystemJunkCleaner
                 if (entry.LastWriteTimeUtc >= cutoff)
                     continue;
 
-                if (TryDeleteFile(entry.FullPath))
+                if (SafeFileSystem.TryDeleteFile(entry.FullPath))
                 {
                     Interlocked.Add(ref freed, entry.Length);
                     Interlocked.Increment(ref deleted);
@@ -92,41 +92,6 @@ public static class SystemJunkCleaner
         }
 
         return new CleanResult(freed, deleted, skipped);
-    }
-
-    private static bool TryDeleteFile(string path)
-    {
-        try
-        {
-            File.Delete(path);
-            return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return TryDeleteReadOnlyFile(path);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TryDeleteReadOnlyFile(string path)
-    {
-        try
-        {
-            var attributes = File.GetAttributes(path);
-            if (!attributes.HasFlag(FileAttributes.ReadOnly))
-                return false;
-
-            File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
-            File.Delete(path);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static void TryDeleteEmptyDirectory(string directory)

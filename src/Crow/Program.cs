@@ -314,10 +314,57 @@ public static class Program
         table.AddEmptyRow();
         table.AddRow("[green]Total freed[/]", $"[green]{totalFreed.ToUnitText()}[/]", string.Empty, string.Empty);
         AnsiConsole.Write(table);
+    }
 
-        if (results.Any(r => r.Result.SkippedCount > 0))
+    private static void DisplaySavedSpaceMessage(CleanResult total, TimeSpan elapsed, IEnumerable<string> paths)
+    {
+        var lines = new List<string>
         {
-            AnsiConsole.MarkupLine(Texts.SKIPPED_FILES_HINT);
+            total.FreedBytes > 0
+                ? $"[bold green]🎉 You just freed {total.FreedBytes.ToUnitText()} of disk space![/]"
+                : "[yellow]No disk space was freed.[/]",
+            $"Removed {total.DeletedCount:N0} item(s) in {((long)elapsed.TotalMilliseconds).ToTimeText()}."
+        };
+
+        foreach (var drive in GetDrives(paths))
+        {
+            lines.Add($"Drive {Markup.Escape(drive.Name)} now has [green]{drive.AvailableFreeSpace.ToUnitText()}[/] free of {drive.TotalSize.ToUnitText()}.");
+        }
+
+        if (total.SkippedCount > 0)
+        {
+            lines.Add(string.Empty);
+            lines.Add(string.Format(Texts.SKIPPED_FILES_HINT, total.SkippedCount));
+        }
+
+        var panel = new Panel(new Markup(string.Join(Environment.NewLine, lines)))
+        {
+            Header = new PanelHeader(" 🐦 Crow "),
+            Border = BoxBorder.Rounded,
+            Padding = new Padding(2, 1, 2, 1)
+        };
+        panel.BorderColor(total.SkippedCount > 0 ? Color.Yellow : Color.Green);
+
+        AnsiConsole.Write(panel);
+    }
+
+    private static IEnumerable<DriveInfo> GetDrives(IEnumerable<string> paths)
+    {
+        foreach (var root in paths.Select(Path.GetPathRoot).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            DriveInfo? drive = null;
+            try
+            {
+                drive = new DriveInfo(root);
+                _ = drive.AvailableFreeSpace;
+            }
+            catch
+            {
+                drive = null;
+            }
+
+            if (drive is not null)
+                yield return drive;
         }
     }
 
@@ -434,20 +481,25 @@ public static class Program
         return AnsiConsole.Confirm("❗❗❗Remove these items?", false);
     }
 
-    private static void ExecuteRemoveOperation(IEnumerable<JunkYard> junkYards)
+    private static void ExecuteRemoveOperation(IReadOnlyList<JunkYard> junkYards)
     {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new CleanResult(0, 0, 0);
         AnsiConsole
             .Status()
             .Start(
                 "Removing junks...",
-                _ => { junkYards.CleanJunkYards(); }
+                _ => { result = junkYards.CleanJunkYards(); }
             );
-        AnsiConsole.MarkupLine($"[green]Done![/]");
+        stopwatch.Stop();
+
+        DisplaySavedSpaceMessage(result, stopwatch.Elapsed, junkYards.Select(j => j.Path));
     }
 
     private static void ExecuteSystemJunkCleanOperation(IReadOnlyList<SystemJunkScanResult> scans)
     {
         List<(SystemJunkScanResult Scan, CleanResult Result)> results = [];
+        var stopwatch = Stopwatch.StartNew();
 
         AnsiConsole
             .Status()
@@ -463,7 +515,15 @@ public static class Program
                 }
             );
 
+        stopwatch.Stop();
+
         DisplayCleanResultTable(results);
+
+        var total = new CleanResult(
+            results.Sum(r => r.Result.FreedBytes),
+            results.Sum(r => r.Result.DeletedCount),
+            results.Sum(r => r.Result.SkippedCount));
+        DisplaySavedSpaceMessage(total, stopwatch.Elapsed, scans.SelectMany(s => s.Location.Paths));
     }
 
     #endregion

@@ -21,6 +21,15 @@ public static class SafeFileSystem
         BufferSize = 64 * 1024
     };
 
+    // Links are listed (so they can be removed) but never descended into.
+    private static readonly EnumerationOptions DeleteOptions = new()
+    {
+        RecurseSubdirectories = false,
+        IgnoreInaccessible = true,
+        AttributesToSkip = 0,
+        BufferSize = 64 * 1024
+    };
+
     public readonly record struct Entry(
         string Name,
         string FullPath,
@@ -198,12 +207,157 @@ public static class SafeFileSystem
         return Measure(directories.Select(d => (d, DateTime.MaxValue)).ToList()).Select(c => c.Size).ToArray();
     }
 
-    private static List<T> Read<T>(string path, FileSystemEnumerable<T>.FindTransform transform)
+    /// <summary>
+    /// Deletes a directory tree in parallel. Unlike <see cref="Directory.Delete(string, bool)"/>
+    /// it does not stop at the first failure, clears read-only flags, retries briefly on
+    /// transient locks, and removes links (symlinks, junctions) without touching their targets,
+    /// including file-type links that point at a folder, which Node creates on Windows.
+    /// </summary>
+    public static CleanResult DeleteTree(string root)
+    {
+        long freed = 0;
+        int deleted = 0, skipped = 0;
+        var directories = new ConcurrentBag<string>();
+
+        ParallelWalk([(root, 0)], (directory, _) =>
+        {
+            directories.Add(directory);
+            var subdirectories = new List<string>();
+
+            var entries = Read(
+                directory,
+                static (ref FileSystemEntry e) => (
+                    Path: e.ToFullPath(),
+                    e.IsDirectory,
+                    IsLink: (e.Attributes & FileAttributes.ReparsePoint) != 0,
+                    e.Length
+                ),
+                DeleteOptions
+            );
+
+            foreach (var entry in entries)
+            {
+                if (entry.IsDirectory && !entry.IsLink)
+                {
+                    subdirectories.Add(entry.Path);
+                    continue;
+                }
+
+                if (TryDeleteEntry(entry.Path, entry.IsDirectory))
+                {
+                    Interlocked.Add(ref freed, entry.IsLink ? 0 : entry.Length);
+                    Interlocked.Increment(ref deleted);
+                }
+                else
+                {
+                    Interlocked.Increment(ref skipped);
+                }
+            }
+
+            return subdirectories;
+        });
+
+        // Deepest first, so each folder is empty by the time it is removed.
+        foreach (var directory in directories.OrderByDescending(d => d.Length))
+        {
+            if (!TryDeleteEntry(directory, isDirectory: true))
+                skipped++;
+        }
+
+        return new CleanResult(freed, deleted, skipped);
+    }
+
+    /// <summary>
+    /// Deletes one file (or link), clearing read-only and retrying briefly on transient locks.
+    /// </summary>
+    public static bool TryDeleteFile(string path)
+    {
+        return TryDeleteEntry(path, isDirectory: false);
+    }
+
+    private static bool TryDeleteEntry(string path, bool isDirectory)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            // A link's own kind may not match its target, so try the other kind too.
+            if (TryDelete(path, isDirectory) || TryDelete(path, !isDirectory))
+                return true;
+
+            ClearReadOnly(path);
+            if (!EntryExists(path))
+                return true;
+
+            if (attempt < 2)
+                Thread.Sleep(25 << attempt); // Antivirus or indexer holding it for a moment.
+        }
+
+        return false;
+    }
+
+    private static bool TryDelete(string path, bool asDirectory)
+    {
+        try
+        {
+            // Non-recursive: on a link this removes the link, never its target.
+            if (asDirectory)
+                Directory.Delete(path);
+            else
+                File.Delete(path);
+
+            return !EntryExists(path);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void ClearReadOnly(string path)
+    {
+        try
+        {
+            var attributes = File.GetAttributes(path);
+            if (attributes.HasFlag(FileAttributes.ReadOnly))
+                File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+        }
+        catch
+        {
+            // Gone or not ours. The next delete attempt will tell.
+        }
+    }
+
+    // File.Exists and Directory.Exists follow links; GetAttributes looks at the entry itself.
+    private static bool EntryExists(string path)
+    {
+        try
+        {
+            File.GetAttributes(path);
+            return true;
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return false;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static List<T> Read<T>(
+        string path,
+        FileSystemEnumerable<T>.FindTransform transform,
+        EnumerationOptions? options = null
+    )
     {
         var result = new List<T>();
         try
         {
-            foreach (var item in new FileSystemEnumerable<T>(path, transform, SingleLevelOptions))
+            foreach (var item in new FileSystemEnumerable<T>(path, transform, options ?? SingleLevelOptions))
             {
                 result.Add(item);
             }

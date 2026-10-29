@@ -129,6 +129,55 @@ public class SystemJunkTests
         config.ScanJunkYards().Should().BeEmpty();
     }
 
+    [TestMethod]
+    public void DeleteTree_Should_Remove_Links_And_ReadOnly_Files_Without_Touching_Targets()
+    {
+        var target = Directory.CreateDirectory(Path.Combine(root, "target"));
+        var targetFile = WriteFile(Path.Combine(target.FullName, "keep.txt"), 5, TimeSpan.Zero);
+
+        var junk = Directory.CreateDirectory(Path.Combine(root, ".next", "node_modules"));
+        var readOnly = WriteFile(Path.Combine(junk.FullName, "ro.js"), 40, TimeSpan.Zero);
+        File.SetAttributes(readOnly, FileAttributes.ReadOnly);
+        WriteFile(Path.Combine(Directory.CreateDirectory(Path.Combine(junk.FullName, "deep", "er")).FullName, "x.js"), 60, TimeSpan.Zero);
+
+        // What Node creates on Windows: a *file* symlink that points at a folder.
+        try
+        {
+            File.CreateSymbolicLink(Path.Combine(junk.FullName, "firebase-admin-c1f692ba"), target.FullName);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Assert.Inconclusive("Creating symlinks needs Developer Mode or admin rights.");
+        }
+
+        var result = SafeFileSystem.DeleteTree(Path.Combine(root, ".next"));
+
+        result.SkippedCount.Should().Be(0);
+        result.FreedBytes.Should().Be(100);
+        Directory.Exists(Path.Combine(root, ".next")).Should().BeFalse();
+        File.Exists(targetFile).Should().BeTrue();
+    }
+
+    [TestMethod]
+    public void DeleteTree_Should_Keep_Going_Past_Locked_Files()
+    {
+        var junk = Directory.CreateDirectory(Path.Combine(root, "build"));
+        var locked = WriteFile(Path.Combine(junk.FullName, "locked.bin"), 10, TimeSpan.Zero);
+        var free = WriteFile(Path.Combine(junk.FullName, "free.bin"), 20, TimeSpan.Zero);
+
+        CleanResult result;
+        using (new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            result = SafeFileSystem.DeleteTree(junk.FullName);
+        }
+
+        result.FreedBytes.Should().Be(20);
+        result.DeletedCount.Should().Be(1);
+        result.SkippedCount.Should().BeGreaterThan(0);
+        File.Exists(free).Should().BeFalse();
+        File.Exists(locked).Should().BeTrue();
+    }
+
     private static string WriteFile(string path, int bytes, TimeSpan age)
     {
         File.WriteAllBytes(path, new byte[bytes]);

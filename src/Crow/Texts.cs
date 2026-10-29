@@ -52,6 +52,8 @@ internal static class Texts
     public const string NOTHING_SELECTED = "[grey]Nothing selected. Nothing was removed.[/]";
     public const string NOT_INTERACTIVE =
         "[yellow]The console is not interactive. Re-run with --force to clean the default selection.[/]";
+    // {0} is the number of skipped items.
     public const string SKIPPED_FILES_HINT =
-        "[grey]Skipped files are in use or need admin rights. Close the apps using them or run from an elevated shell.[/]";
+        "[yellow]{0:N0} item(s) were skipped because they are in use or need admin rights.[/]\n" +
+        "[grey]Stop running dev servers and close your IDE or browsers, or run from an elevated shell, then run Crow again.[/]";
 }
