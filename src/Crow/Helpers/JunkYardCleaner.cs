@@ -12,19 +12,19 @@ public static class JunkYardCleaner
             {
                 if (File.Exists(junkYard))
                 {
-                    AnsiConsole.MarkupLine($"Removing file: {junkYard}");
+                    AnsiConsole.MarkupLine($"Removing file: {Markup.Escape(junkYard)}");
                     File.Delete(junkYard);
                 }
                 else if (Directory.Exists(junkYard))
                 {
-                    AnsiConsole.MarkupLine($"Removing directory: {junkYard}");
+                    AnsiConsole.MarkupLine($"Removing directory: {Markup.Escape(junkYard)}");
                     Directory.Delete(junkYard, true);
                 }
             }
             catch (Exception e)
             {
-                AnsiConsole.MarkupLine($"[red]Error: {e.Message}.[/]");
-                AnsiConsole.MarkupLine($"Ignoring {junkYard}");
+                AnsiConsole.MarkupLine($"[red]Error: {Markup.Escape(e.Message)}.[/]");
+                AnsiConsole.MarkupLine($"Ignoring {Markup.Escape(junkYard)}");
             }
         }
     }

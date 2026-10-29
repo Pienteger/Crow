@@ -14,8 +14,8 @@ public class ConfigurationTests
             $"{Flags.LF} *csproj {Flags.IN} \"C:\\Users\\Mahmud\\RiderProjects\\\" {Flags.RM} \"test 1\" bin obj test2";
 
         // Act
-        var config = Configuration.Parse(strConfig);
-        var expectation = new Configuration
+        var config = ScanDeleteConfiguration.Parse(strConfig);
+        var expectation = new ScanDeleteConfiguration
         {
             LookFor = "*csproj",
             RemoveCandidates = ["test 1", "bin", "obj", "test2"],
@@ -36,7 +36,7 @@ public class ConfigurationTests
         // Act
         try
         {
-            _ = Configuration.Parse(strConfig);
+            _ = ScanDeleteConfiguration.Parse(strConfig);
             throw new Exception();
         }
         catch (Exception e)

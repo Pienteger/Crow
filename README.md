@@ -22,6 +22,31 @@ To set the execution policy, you may need to run the shell as an admin.
 
 ## Example Usage
 
+### Clean system junk
+
+```sh
+crow clean
+```
+
+Scans temp files, crash dumps, Windows error reports, browser caches (Chrome, Edge, Brave, Firefox), app caches (VS Code, Discord, Slack, Teams) and shader caches, plus opt-in Windows Update downloads and package manager caches (npm, Yarn, pip, NuGet, Gradle). Results are sorted by size. You pick what to clean from a checklist where the safe locations are preselected.
+
+- `--dry-run` only reports what could be freed.
+- `--all` preselects every location.
+- `--older-than <hours>` only removes files untouched for that long. By default, temp folders keep anything from the last 24 hours.
+- `--force` cleans the default selection without asking.
+
+Only the contents of each location are removed. Files in use are skipped, junctions are never followed, and the Recycle Bin is not touched. Close your browsers first to free their caches. Run from an elevated shell to clean the Windows folders fully.
+
+### Clean build output of all your projects
+
+```sh
+crow dev --in C:\Users\YourUserName\source
+```
+
+Walks the tree once and finds `bin`/`obj` (.NET), `node_modules`/`.next`/`.turbo`/... (Node.js), `target` (Rust, Maven), `build`/`.gradle` (Gradle, Flutter), Python caches and CMake build folders. A folder is only reported when it sits next to its project file, so nested projects in a monorepo are found as well. Results are sorted by size.
+
+### Custom scan
+
 ```sh
 crow --lf *csproj --in C:\Users\YourUserName\source\repos --rm bin obj
 ```

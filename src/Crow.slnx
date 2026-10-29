@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Crow.Tests/Crow.Tests.csproj" />
+  <Project Path="Crow/Crow.csproj" />
+</Solution>

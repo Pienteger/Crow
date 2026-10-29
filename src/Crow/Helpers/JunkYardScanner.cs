@@ -1,161 +1,95 @@
-﻿namespace Crow.Helpers;
+﻿using System.Collections.Concurrent;
+
+namespace Crow.Helpers;
 
 public static class JunkYardScanner
 {
+    // Never worth descending into: huge, and node_modules is full of package.json markers.
+    private static readonly HashSet<string> NeverDescendInto =
+        new(["node_modules", ".git", ".hg", ".svn"], StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Finds and retrieves all junkyards based on the specified configuration.
-    /// Iterates through each path in the configuration's LookIns collection,
-    /// skips empty paths, and retrieves junkyards from each valid directory.
+    /// A junkyard is a file or directory matching one of the remove candidates
+    /// that sits next to a file matching the look-for pattern.
     /// </summary>
     /// <param name="config">The configuration object containing the paths to search for junkyards.</param>
-    /// <returns>A leaky enumerable collection of JunkYard objects found in the specified directories.</returns>
-    public static IEnumerable<JunkYard> ScanJunkYards(this Configuration config)
+    /// <returns>The JunkYard objects found in the specified directories.</returns>
+    public static IEnumerable<JunkYard> ScanJunkYards(this ScanDeleteConfiguration config)
     {
-        var validPaths = config.LookIns
-            .Where(p => !string.IsNullOrEmpty(p))
-            .Select(p => new DirectoryInfo(p));
-        
-        foreach (var directoryInfo  in validPaths)
-        {
-            foreach (var junk in directoryInfo.GetJunkYards(config))
-            {
-                yield return junk;
-            }
-        }
+        var preset = new DevPreset(string.Empty, config.LookFor, config.RemoveCandidates);
+        return Scan([preset], config.LookIns, config.Ignores, labelResults: false);
     }
 
-    private static long GetFileSize(string filePath)
+    /// <summary>
+    /// Applies every preset to each directory in a single walk of the tree.
+    /// </summary>
+    public static IEnumerable<JunkYard> ScanJunkYards(this DevScanConfiguration config)
     {
-        return File.Exists(filePath) ? new FileInfo(filePath).Length : 0;
+        return Scan(config.Presets, config.LookIns, config.Ignores, labelResults: true);
     }
 
-    private static long CalculateDirectorySize(DirectoryInfo directory)
-    {
-        if (directory is not {Exists: true})
-            return 0;
-
-        long startDirectorySize = 0;
-
-        foreach (var fileInfo in directory.GetFiles())
-        {
-            Interlocked.Add(ref startDirectorySize, fileInfo.Length);
-        }
-
-        Parallel.ForEach(
-            directory.GetDirectories(),
-            subDirectory =>
-                Interlocked.Add(ref startDirectorySize, CalculateDirectorySize(subDirectory))
-        );
-
-        return startDirectorySize;
-    }
-
-    private static IEnumerable<JunkYard> GetJunkYards(
-        this DirectoryInfo? directoryInfo,
-        Configuration config
+    /// <summary>
+    /// Walks the tree in parallel, then sizes every found directory in a second
+    /// parallel walk. Keeps descending below project roots (so nested projects in a
+    /// monorepo are found) but never into anything marked for removal.
+    /// </summary>
+    private static List<JunkYard> Scan(
+        IReadOnlyList<DevPreset> presets,
+        IReadOnlyList<string> lookIns,
+        IReadOnlyList<string> ignores,
+        bool labelResults
     )
     {
-        if (ShouldSkipDirectory(directoryInfo, config))
-            yield break;
+        var ignored = ignores.Select(TrimSeparators).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var found = new ConcurrentBag<JunkYard>();
 
-        if (TryGetDirectoryContents(directoryInfo!, out var files, out var directories))
-            yield break;
+        var roots = lookIns
+            .Where(p => !string.IsNullOrEmpty(p) && !ignored.Contains(TrimSeparators(p)))
+            .Select(p => (p, 0));
 
-        if (IsDirectoryEmpty(files, directories))
-            yield break;
-
-        if (CheckForJunkFiles(files, directories, config, out var junkYards))
+        SafeFileSystem.ParallelWalk(roots, (directory, _) =>
         {
-            foreach (var junkYard in junkYards)
+            var entries = SafeFileSystem.List(directory, withFilePaths: false);
+            var files = entries.Where(e => !e.IsDirectory).ToList();
+            var junk = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var matchingPresets = presets.Where(preset =>
+                files.Exists(f => Sherlock.MatchesPattern(preset.LookFor, f.Name.AsSpan(), MatchType.Win32)));
+
+            foreach (var preset in matchingPresets)
             {
-                yield return junkYard;
+                var targets = entries.Where(e => preset.RemoveCandidates.Any(candidate =>
+                    Sherlock.MatchesPattern(candidate, e.Name.AsSpan(), MatchType.Win32)));
+
+                foreach (var target in targets.Where(t => junk.Add(t.Name)))
+                {
+                    var label = labelResults ? preset.Name : null;
+                    found.Add(target.IsDirectory
+                        ? new JunkYard(target.FullPath, 0, JunkType.Directory, label)
+                        : new JunkYard(Path.Combine(directory, target.Name), target.Length, JunkType.File, label));
+                }
             }
 
-            yield break;
-        }
+            return entries
+                .Where(e => e.IsDirectory
+                            && !junk.Contains(e.Name)
+                            && !NeverDescendInto.Contains(e.Name)
+                            && !ignored.Contains(e.FullPath))
+                .Select(e => e.FullPath);
+        });
 
-        foreach (var junkYard1 in SearchSubDirectories(config, directories))
-        {
-            yield return junkYard1;
-        }
-    }
+        var directories = found.Where(j => j.JunkType == JunkType.Directory).ToList();
+        var sizes = SafeFileSystem.GetDirectorySizes(directories.Select(d => d.Path).ToList());
 
-    private static bool CheckForJunkFiles(
-        FileInfo[] files, DirectoryInfo[] directories, Configuration config, out IEnumerable<JunkYard> junkYards)
-    {
-        var validFiles = files.Where(f => Sherlock.MatchesPattern(config.LookFor, f.Name.AsSpan(), MatchType.Win32))
+        return directories
+            .Select((junkYard, i) => junkYard with { Size = sizes[i] })
+            .Concat(found.Where(j => j.JunkType == JunkType.File))
             .ToList();
-
-        if (validFiles.Count == 0)
-        {
-            junkYards = [];
-            return false;
-        }
-
-        junkYards = config.RemoveCandidates.SelectMany(
-            target => FindJunkYards(directories, files, target)
-        );
-        return true;
     }
 
-    private static IEnumerable<JunkYard> SearchSubDirectories(Configuration config, DirectoryInfo[] directories)
+    private static string TrimSeparators(string path)
     {
-        return directories.SelectMany(directory => directory.GetJunkYards(config));
-    }
-
-    private static bool TryGetDirectoryContents(DirectoryInfo directoryInfo, out FileInfo[] files,
-        out DirectoryInfo[] directories)
-    {
-        try
-        {
-            files = directoryInfo.GetFiles();
-            directories = directoryInfo.GetDirectories();
-        }
-        catch
-        {
-            files = [];
-            directories = [];
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsDirectoryEmpty(FileInfo[] files, DirectoryInfo[] directories)
-    {
-        return files.Length == 0 && directories.Length == 0;
-    }
-
-    private static bool ShouldSkipDirectory(DirectoryInfo? directoryInfo, Configuration config)
-    {
-        return directoryInfo is null
-               || !directoryInfo.Exists
-               || config.Ignores.Contains(directoryInfo.FullName);
-    }
-
-    private static IEnumerable<JunkYard> FindJunkYards(
-        DirectoryInfo[] directories,
-        FileInfo[] files,
-        string target
-    )
-    {
-        var validDirectoryPaths =
-            directories.Where(d => Sherlock.MatchesPattern(target, d.Name.AsSpan(), MatchType.Win32));
-
-        foreach (var directory in validDirectoryPaths)
-        {
-            yield return new JunkYard(
-                directory.FullName,
-                CalculateDirectorySize(directory),
-                JunkType.Directory
-            );
-        }
-
-        var validFilePaths = files.Where(f => Sherlock.MatchesPattern(target, f.Name.AsSpan(), MatchType.Win32))
-            .Select(x => x.FullName);
-        foreach (var filePath in validFilePaths)
-        {
-            yield return new JunkYard(filePath, GetFileSize(filePath), JunkType.File);
-        }
+        return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 }
