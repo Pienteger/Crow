@@ -2,101 +2,169 @@
 
 ![Crow logo, designed with Ai](./crow-logo.png)
 
-Crow is a lightweight command-line tool designed to help developers reclaim valuable disk space by identifying and deleting unnecessary build files. This utility efficiently scans for build files in specified directories and offers an easy way to remove them, ensuring your development environment remains clean and more space left for your video games.
+Crow is a small Windows command-line tool that frees disk space. It finds build output (`bin`, `obj`, `node_modules`, `target`, ...) across all your projects, plus system junk like temp files and browser caches. You review the list, then Crow deletes what you picked. That leaves more space for your video games.
 
-## Installation
+- Single ~4 MB exe. No .NET runtime needed.
+- Shows sizes first and asks before deleting anything.
+- Never follows junctions or symlinks out of the folder being cleaned.
 
-1. Download `Crow-win-x64.zip` (or `Crow-win-arm64.zip` for ARM devices) from the [release page](https://github.com/Pienteger/Crow/releases). It is a single ~4 MB native exe; no .NET runtime is needed.
-2. Set the appropriate PowerShell policy to run the installer:
-   - Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` in the shell.
-3. Unzip the downloaded file and navigate to the unzipped directory.
-4. Run `.\setup.ps1`:
-   - Right click on the file and select **Run with PowerShell**
-   - This will copy the `.exe` file to `C:\Users\Public\Pienteger\` and add it to the PATH.
-5. Re-open the Command Prompt, PowerShell, or terminal.
-6. Run `crow help` to verify the installation.
+## Install
 
-### Caution
+Run this in PowerShell:
 
-To set the execution policy, you may need to run the shell as an admin.
+```powershell
+irm https://raw.githubusercontent.com/Pienteger/Crow/master/install.ps1 | iex
+```
+
+It downloads the latest release for your CPU (x64 or ARM64) and checks its SHA-256. Then it copies `crow.exe` to `C:\Users\Public\Pienteger` and adds that folder to your user PATH. No admin rights or execution policy change needed.
+
+Run the same command again to update.
+
+<details>
+<summary>Manual install</summary>
+
+1. Download `Crow-win-x64.zip` (or `Crow-win-arm64.zip` for ARM devices) from the [release page](https://github.com/Pienteger/Crow/releases).
+2. Unzip it.
+3. Right-click `setup.ps1` and choose **Run with PowerShell**.
+   If Windows blocks the script, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` first.
+4. Reopen your terminal and run `crow help`.
+
+You can also skip the script: put `crow.exe` in any folder on your PATH.
+
+</details>
+
+<details>
+<summary>Uninstall</summary>
+
+```powershell
+Remove-Item C:\Users\Public\Pienteger -Recurse
+$path = [Environment]::GetEnvironmentVariable('Path', 'User') -split ';' | Where-Object { $_.TrimEnd('\') -ne 'C:\Users\Public\Pienteger' }
+[Environment]::SetEnvironmentVariable('Path', ($path -join ';'), 'User')
+```
+
+</details>
+
+## Quick start
+
+```sh
+crow clean --dry-run                # See how much system junk you have, delete nothing
+crow clean                          # Pick what to clean from a checklist
+crow dev --in C:\Users\you\source   # Find build output in all your projects
+```
+
+## Commands
+
+### `crow clean`: system junk
+
+Scans these locations and sorts them by size:
+
+| Selected by default | Opt-in |
+|---|---|
+| User and Windows temp files, crash dumps, Windows error reports, DirectX shader cache | Windows Update downloads |
+| Internet cache, Chrome, Edge, Brave and Firefox caches | NVIDIA shader cache |
+| VS Code, Discord, Slack and Teams caches | npm, Yarn, pip, NuGet and Gradle caches |
+
+You pick what to clean from a checklist. The safe locations are already ticked.
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Only report what could be freed. |
+| `--all` | Tick every location, not only the safe ones. |
+| `--older-than <hours>` | Only remove files untouched for that long. Temp folders keep the last 24 hours by default. |
+| `--force` | Clean the default selection without asking. |
+
+Only the contents of each location are removed, never the folder itself. Files in use are skipped. The Recycle Bin is not touched.
+
+Tips:
+
+- Close your browsers first, or their caches stay locked.
+- Run from an elevated shell to clean the Windows folders fully.
+
+### `crow dev`: build output
+
+```sh
+crow dev --in C:\Users\you\source
+crow dev --in D:\work D:\oss --ig D:\work\legacy-app
+```
+
+Walks the tree once and looks for these project types:
+
+| Project | Found by | Removes |
+|---|---|---|
+| .NET | `*.csproj`, `*.fsproj`, `*.vbproj` | `bin`, `obj` |
+| Node.js | `package.json` | `node_modules`, `.next`, `.nuxt`, `.turbo`, `.parcel-cache`, `.svelte-kit`, `.angular` |
+| Rust | `Cargo.toml` | `target` |
+| Maven | `pom.xml` | `target` |
+| Gradle | `build.gradle`, `build.gradle.kts` | `build`, `.gradle` |
+| Python | `pyproject.toml`, `requirements.txt` | `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.tox` |
+| Flutter | `pubspec.yaml` | `build`, `.dart_tool` |
+| CMake | `CMakeLists.txt` | `cmake-build-debug`, `cmake-build-release` |
+
+A folder is only reported when it sits next to its project file. A `build` folder with no Gradle or Flutter project next to it is left alone. Nested projects in a monorepo are found too.
+
+| Flag | What it does |
+|---|---|
+| `--in <dir> ...` | Folders to scan. Required. |
+| `--ig <dir> ...` | Folders to skip. |
+| `--force` | Delete without asking. |
+
+### Custom scan
+
+For anything the presets don't cover:
+
+```sh
+crow --lf *.csproj --in C:\Users\you\source\repos --rm bin obj
+crow --lf package.json --in C:\Users\you\jsWorks --rm node_modules --ig C:\Users\you\jsWorks\keep-me
+```
+
+| Flag | What it does |
+|---|---|
+| `--lf <pattern>` | Marker file that identifies a project folder. Required. |
+| `--in <dir> ...` | Folders to scan. Required. |
+| `--rm <pattern> ...` | Files or folders to delete next to the marker. Required. |
+| `--ig <path> ...` | Paths to skip. |
+| `--force` | Delete without asking. |
+
+### Other
+
+| Command | What it does |
+|---|---|
+| `crow help` | Show usage. |
+| `crow version` | Show the installed version. |
+
+### Notes
+
+- `--lf` and `--rm` take wildcards: `*` and `?`.
+- `--in` and `--ig` take full paths. A relative path is resolved against the current folder.
+- Flags are case-insensitive.
+- `--force` skips the confirmation prompt. Use it with care.
+
+## Build from source
+
+Needs the .NET 10 SDK. From `src`:
+
+```sh
+dotnet test
+dotnet run --project Crow -- help
+```
+
+To build the same native exe as the release (needs the Visual Studio C++ build tools):
+
+```sh
+dotnet publish Crow/Crow.csproj -c Release -r win-x64 -p:PublishAot=true -p:OptimizationPreference=Size -p:StripSymbols=true -o ../publish
+```
 
 ## Releasing
 
-Releases are built and published by the [Release workflow](.github/workflows/release.yml): it runs the tests, builds Native AOT exes for `win-x64` and `win-arm64`, smoke-tests them, and publishes the zips with SHA-256 checksums.
+The [Release workflow](.github/workflows/release.yml) runs the tests and builds Native AOT exes for `win-x64` and `win-arm64`. Then it smoke-tests them and publishes the zips with SHA-256 checksums.
 
 ```sh
 git tag v1.2.0
 git push origin v1.2.0
 ```
 
-Or open **Actions > Release > Run workflow** and enter a version; the tag is created for you. Versions with a suffix such as `1.3.0-beta.1` are published as pre-releases.
+Or open **Actions > Release > Run workflow** and enter a version. The workflow creates the tag for you. A version with a suffix, such as `1.3.0-beta.1`, is published as a pre-release.
 
-To build the same exe locally (needs the Visual Studio C++ build tools), run from `src`:
+## License
 
-```sh
-dotnet publish Crow/Crow.csproj -c Release -r win-x64 -p:PublishAot=true -p:OptimizationPreference=Size -p:StripSymbols=true -o ../publish
-```
-
-## Example Usage
-
-### Clean system junk
-
-```sh
-crow clean
-```
-
-Scans temp files, crash dumps, Windows error reports, browser caches (Chrome, Edge, Brave, Firefox), app caches (VS Code, Discord, Slack, Teams) and shader caches, plus opt-in Windows Update downloads and package manager caches (npm, Yarn, pip, NuGet, Gradle). Results are sorted by size. You pick what to clean from a checklist where the safe locations are preselected.
-
-- `--dry-run` only reports what could be freed.
-- `--all` preselects every location.
-- `--older-than <hours>` only removes files untouched for that long. By default, temp folders keep anything from the last 24 hours.
-- `--force` cleans the default selection without asking.
-
-Only the contents of each location are removed. Files in use are skipped, junctions are never followed, and the Recycle Bin is not touched. Close your browsers first to free their caches. Run from an elevated shell to clean the Windows folders fully.
-
-### Clean build output of all your projects
-
-```sh
-crow dev --in C:\Users\YourUserName\source
-```
-
-Walks the tree once and finds `bin`/`obj` (.NET), `node_modules`/`.next`/`.turbo`/... (Node.js), `target` (Rust, Maven), `build`/`.gradle` (Gradle, Flutter), Python caches and CMake build folders. A folder is only reported when it sits next to its project file, so nested projects in a monorepo are found as well. Results are sorted by size.
-
-### Custom scan
-
-```sh
-crow --lf *csproj --in C:\Users\YourUserName\source\repos --rm bin obj
-```
-
-```sh
-crow --lf package.json --in C:\Users\YourUserName\jsWorks --rm node_modules
-```
-
-```sh
-crow --lf package.json --in C:\Users\YourUserName\jsWorks --rm node_modules --ig AppData
-```
-
-> Make sure crow is in your PATH
-
-### Flags
-
-|Flag|Description|Remark|
-|---|---|---|
-|`--lf`|Files or directories to look for|Required|
-|`--in`|Directories to scan|Required|
-|`--rm`|Files or directories to remove|Required|
-|`--ig`|Directories to ignore|Optional|
-|`--force`|Removes files without asking for confirmation|Optional|
-
-### Misc
-
-- `help`  
-  Display help message.
-
-- `version`  
-  Display app version.
-
-### Note
-
-1. Flags are case insensitive.
-2. Using `--force` is not recommended.
+[MIT](LICENSE.txt)

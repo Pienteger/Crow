@@ -175,6 +175,14 @@ jobs:
           {
             echo "## Install"
             echo
+            echo "Run this in PowerShell to install or update:"
+            echo
+            echo '```powershell'
+            echo "irm https://raw.githubusercontent.com/${GH_REPO}/master/install.ps1 | iex"
+            echo '```'
+            echo
+            echo "Or install by hand:"
+            echo
             echo "1. Download the zip for your machine (\`win-x64\` for most PCs, \`win-arm64\` for ARM devices)."
             echo "2. Unzip it, right-click \`setup.ps1\` and choose **Run with PowerShell**."
             echo "3. Reopen your terminal and run \`crow help\`."
