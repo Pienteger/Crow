@@ -130,6 +130,31 @@ public class SystemJunkTests
     }
 
     [TestMethod]
+    public void Dev_Scan_Should_Not_Report_Ignored_Removal_Targets()
+    {
+        File.WriteAllText(Path.Combine(root, "package.json"), "{}");
+        var nodeModules = Directory.CreateDirectory(Path.Combine(root, "node_modules"));
+        var next = Directory.CreateDirectory(Path.Combine(root, ".next"));
+
+        var config = DevScanConfiguration.Parse($"dev {Flags.IN} {root} {Flags.IG} {nodeModules.FullName}");
+
+        config.ScanJunkYards().Select(j => j.Path).Should().BeEquivalentTo([next.FullName]);
+    }
+
+    [TestMethod]
+    public void Custom_Scan_Should_Not_Report_Ignored_Removal_Targets()
+    {
+        File.WriteAllText(Path.Combine(root, "App.csproj"), "<Project />");
+        var bin = Directory.CreateDirectory(Path.Combine(root, "bin"));
+        var log = WriteFile(Path.Combine(root, "build.log"), 10, TimeSpan.Zero);
+
+        var config = ScanDeleteConfiguration.Parse(
+            $"{Flags.LF} *.csproj {Flags.IN} {root} {Flags.RM} bin *.log {Flags.IG} {bin.FullName} {log}");
+
+        config.ScanJunkYards().Should().BeEmpty();
+    }
+
+    [TestMethod]
     public void DeleteTree_Should_Remove_Links_And_ReadOnly_Files_Without_Touching_Targets()
     {
         var target = Directory.CreateDirectory(Path.Combine(root, "target"));
