@@ -30,6 +30,40 @@ public static class StringUtilities
     }
 
     /// <summary>
+    /// Undoes what Windows does to a quoted path that ends with a backslash.
+    /// <c>"C:\My Projects\" --force</c> arrives as the single arg
+    /// <c>C:\My Projects" --force</c>, because <c>\"</c> is read as an escaped quote.
+    /// Paths cannot contain <c>"</c>, so the text before it is the path and the
+    /// rest holds the args it swallowed.
+    /// </summary>
+    /// <param name="args">The args as passed to Main.</param>
+    /// <returns>The args with the path and the swallowed args split apart again.</returns>
+    public static string[] RepairQuotedArgs(this string[] args)
+    {
+        var result = new List<string>(args.Length);
+        foreach (var arg in args)
+        {
+            // An empty arg such as --in "" carries no value.
+            if (string.IsNullOrWhiteSpace(arg))
+                continue;
+
+            var quote = arg.IndexOf('"');
+            if (quote == -1)
+            {
+                result.Add(arg);
+                continue;
+            }
+
+            if (quote > 0)
+                result.Add(arg[..quote]);
+
+            result.AddRange(arg[(quote + 1)..].Split([' ', '"'], StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        return result.ToArray();
+    }
+
+    /// <summary>
     /// Compares two strings for equality, ignoring case differences.
     /// </summary>
     /// <param name="str1">The first string to compare.</param>
