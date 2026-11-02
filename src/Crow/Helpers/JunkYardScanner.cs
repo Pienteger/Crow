@@ -64,10 +64,15 @@ public static class JunkYardScanner
 
                 foreach (var target in targets.Where(t => junk.Add(t.Name)))
                 {
+                    // File entries carry no full path, so build it from the directory.
+                    var path = target.IsDirectory ? target.FullPath : Path.Combine(directory, target.Name);
+                    if (ignored.Contains(path))
+                        continue;
+
                     var label = labelResults ? preset.Name : null;
                     found.Add(target.IsDirectory
-                        ? new JunkYard(target.FullPath, 0, JunkType.Directory, label)
-                        : new JunkYard(Path.Combine(directory, target.Name), target.Length, JunkType.File, label));
+                        ? new JunkYard(path, 0, JunkType.Directory, label)
+                        : new JunkYard(path, target.Length, JunkType.File, label));
                 }
             }
 
