@@ -19,8 +19,21 @@ public class SystemJunkTests
     [TestCleanup]
     public void Teardown()
     {
-        if (Directory.Exists(root))
-            Directory.Delete(root, true);
+        if (!Directory.Exists(root))
+            return;
+
+        // Some tests leave read-only files behind, which Directory.Delete refuses to remove.
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        };
+        foreach (var file in Directory.EnumerateFiles(root, "*", options))
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        Directory.Delete(root, true);
     }
 
     [TestMethod]
