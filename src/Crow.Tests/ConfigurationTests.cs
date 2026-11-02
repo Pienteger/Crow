@@ -45,4 +45,26 @@ public class ConfigurationTests
             e.Should().BeOfType<ArgumentException>();
         }
     }
+
+    [TestMethod]
+    public void Parse_Should_Keep_Spaces_In_Path_Args()
+    {
+        string[] args = [Flags.LF, "*.csproj", Flags.IN, @"C:\My Projects", Flags.RM, "bin", Flags.IG, @"C:\My Projects\Old Stuff"];
+
+        var config = ScanDeleteConfiguration.Parse(args);
+
+        config.LookIns.Should().Equal(@"C:\My Projects");
+        config.Ignores.Should().Equal(@"C:\My Projects\Old Stuff");
+    }
+
+    [TestMethod]
+    public void Dev_Parse_Should_Keep_Spaces_In_Path_Args()
+    {
+        string[] args = ["dev", Flags.IN, @"C:\My Projects", Flags.FORCE];
+
+        var config = DevScanConfiguration.Parse(args);
+
+        config.LookIns.Should().Equal(@"C:\My Projects");
+        config.IsForceEnabled.Should().BeTrue();
+    }
 }

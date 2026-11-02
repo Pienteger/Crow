@@ -20,7 +20,18 @@ public sealed class ScanDeleteConfiguration
             );
         }
 
-        var args = argsStr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return Parse(argsStr.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>
+    /// Parses args as passed to Main, so a single arg may hold a path with spaces.
+    /// </summary>
+    public static ScanDeleteConfiguration Parse(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            throw new ArgumentException("Arguments cannot be empty.", nameof(args));
+        }
 
         var lfValue = ParseLookForValue(args);
         var rmValues = ParseFlagParts(Flags.RM, args);

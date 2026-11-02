@@ -12,6 +12,7 @@ public static class Program
         try
         {
             Console.OutputEncoding = Encoding.UTF8;
+            args = args.RepairQuotedArgs();
 
             if (TryExecuteBasicRequest(args))
             {
@@ -77,10 +78,8 @@ public static class Program
         parsedConfig = null;
         try
         {
-            // We make the args a single string because the shell fails to parse
-            // into the valid segments when there is an argument that ends with \"
-            // So we do segmentation manually.
-            parsedConfig = ScanDeleteConfiguration.Parse(string.Join(" ", args));
+            // Main already repaired args that end with \", see RepairQuotedArgs.
+            parsedConfig = ScanDeleteConfiguration.Parse(args);
             return true;
         }
         catch (ArgumentException ae)
@@ -153,7 +152,7 @@ public static class Program
         DevScanConfiguration config;
         try
         {
-            config = DevScanConfiguration.Parse(string.Join(" ", args));
+            config = DevScanConfiguration.Parse(args);
         }
         catch (ArgumentException ae)
         {

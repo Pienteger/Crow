@@ -18,10 +18,17 @@ public sealed class DevScanConfiguration
             );
         }
 
+        return Parse(argsStr.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>
+    /// Parses args as passed to Main, so a single arg may hold a path with spaces.
+    /// </summary>
+    public static DevScanConfiguration Parse(string[] args)
+    {
         // Drop the command itself, otherwise a missing optional flag
         // would read it as a value.
-        var args = argsStr
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        args = args
             .SkipWhile(a => !a.StartsWith('-') || Commands.DevCleanAliases.IndexOf(a) >= 0)
             .ToArray();
 
